@@ -547,7 +547,7 @@ class Parser:
 
     def _instrucoes(self) -> None:
         self._derivacao("instrucoes")
-        while not self._fim() and not self._verificar(END):
+        while not self._fim() and not self._verificar(*self._FIM_DE_BLOCO):
             inicio = self._estado.posicao
             if not self._verificar(*self._INICIO_DE_INST):
                 self._erro(
@@ -560,6 +560,9 @@ class Parser:
                 # Um ponto de sincronização que não inicia instrução faria o laço
                 # girar sem consumir nada; descarta-o para garantir progresso.
                 self._avancar()
+
+    # Tokens que encerram uma sequência de instruções sem exigir `;` final.
+    _FIM_DE_BLOCO = (END, UNTIL, ELSE, PONTO)
 
     _INICIO_DE_INST = (
         ID,
@@ -590,11 +593,13 @@ class Parser:
             return self._instrucao_para()
         if tipo in (BREAK, CONTINUE):
             self._avancar()
-            if not self._verificar(PONTO_E_VIRGULA):
-                self._erro(f"esperado ';' após '{tipo.lower()}'")
-                return False
-            self._avancar()
-            return True
+            if self._verificar(PONTO_E_VIRGULA):
+                self._avancar()
+                return True
+            if self._verificar(*self._FIM_DE_BLOCO) or self._fim():
+                return True
+            self._erro(f"esperado ';' após '{tipo.lower()}'")
+            return False
         self._erro(f"instrução inválida: {self._descricao(tipo)}")
         return False
 
@@ -649,8 +654,10 @@ class Parser:
         if self._verificar(PONTO_E_VIRGULA):
             self._avancar()
             return True
-        if self._verificar(ELSE):
-            # Em `if C then S1 else S2`, o `;` pertence ao ramo `else`.
+        if self._verificar(*self._FIM_DE_BLOCO) or self._fim():
+            # O `;` é facultativo na última instrução de um bloco (`S1; S2 end.`)
+            # e antes do `until`; no ramo `if C then S1 else S2` o `;` pertence
+            # ao `else`.
             return True
         self._erro("esperado ';' ao final da instrução")
         return False
@@ -748,6 +755,12 @@ class Parser:
             return
         if self._verificar(ID):
             self._variavel()
+            while self._verificar(ABRE_PARENTESES):
+                # Chamada de função usada como operando: `x := dobro(n)`.
+                self._derivacao("parametros2")
+                self._avancar()
+                self._argumentos()
+                self._esperar(FECHA_PARENTESES, "')'")
             return
         self._erro(f"esperado uma expressão, encontrado {self._descricao(self._atual())}")
         self._sincronizar()

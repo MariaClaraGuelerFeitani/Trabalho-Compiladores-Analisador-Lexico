@@ -35,9 +35,9 @@ python tests\smoke_ui.py
 | `tests/test_lexer.py` | 135 | palavras reservadas, simbolos, identificadores, numeros, literais, comentarios, erros e tabela de simbolos |
 | `tests/test_dfa.py` | 139 | invariantes do automato: determinismo, alcancabilidade, aceitacao e maximo casamento |
 | `tests/test_grammar.py` | 26 | transcricao do Anexo I, extensoes da parte 2 e consistencia terminal/token |
-| `tests/test_parser.py` | 128 | programas validos e invalidos, `for`, `record`, enumeracao, aviso de instrucao sem efeito e recuperacao |
+| `tests/test_parser.py` | 144 | programas validos e invalidos, `for`, `record`, enumeracao, acesso a campo, chamada de funcao em expressao, `;` final facultativo, aviso de instrucao sem efeito e recuperacao |
 
-Total: 428 testes.
+Total: 444 testes.
 
 O teste de fumaca abre a interface em modo `offscreen`, digita um programa e
 valida aba por aba (tokens, erros, avisos, simbolos, classes de tokens, DFA e
@@ -153,6 +153,10 @@ relatorio/
   editor sem alteracao na interface.
 - A lista de parametros e facultativa (`procedure Q;`), como no Pascal, e o
   `;` antes do `)` tambem e opcional.
+- O `;` final e facultativo antes de `end`, `until`, `else` e `.`, porque
+  nenhum Pascal real escreve `x := 1 end.`; no meio do bloco ele e obrigatorio.
+- Chamada de funcao e aceita como operando (`x := dobro(n)`), alem da chamada de
+  procedimento em posicao de instrucao.
 - As secoes `var`, `const` e `type` podem aparecer em qualquer ordem antes das
   subrotinas; a gramatica do Anexo I admite um conjunto menor.
 

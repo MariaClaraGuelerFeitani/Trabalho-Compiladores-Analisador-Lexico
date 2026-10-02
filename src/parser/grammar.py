@@ -104,7 +104,10 @@ ANEXO_I: tuple[Producao, ...] = (
     Producao("termo", ("unario termo2",)),
     Producao("termo2", ("* unario termo2", "/ unario termo2", VAZIA)),
     Producao("unario", ("+ fator", "- fator", "fator")),
-    Producao("fator", (f"{LPAREN} expr {RPAREN}", "variavel", "NUM", "LITERAL")),
+    Producao(
+        "fator",
+        (f"{LPAREN} expr {RPAREN}", "variavel ( parametros2 )", "variavel", "NUM", "LITERAL"),
+    ),
     Producao("variavel", ("ID", "ID [ exprOp ]", "ID . ID")),
     Producao("NUM", ("digitos", "digitos . digitos")),
 )

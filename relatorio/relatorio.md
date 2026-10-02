@@ -7,7 +7,7 @@ para um dialeto da linguagem Pascal.
 | --- | --- |
 | Autores | Blendhon Pontini Delfino, Maria Clara Gueler Feitani |
 | Implementacao | `src/lexer/` (lexico) e `src/parser/` (sintatico) |
-| Testes | 428: `test_lexer.py` (135), `test_dfa.py` (139), `test_grammar.py` (26), `test_parser.py` (128) |
+| Testes | 444: `test_lexer.py` (135), `test_dfa.py` (139), `test_grammar.py` (26), `test_parser.py` (144) |
 
 ---
 
@@ -461,6 +461,14 @@ Registradas para conhecimento:
 7. **`;` antes do `else`.** O Anexo I mostra `instrucoes THEN inst ELSE inst`
    sem `;` entre os ramos; fontes escritas com `;` antes do `else`, que e o
    habito mais comum, tambem sao aceitas.
+8. **`;` final facultativo.** O Anexo I escreve `ID := exprOp ;`, o que exige
+   `;` na ultima instrucao de todo bloco. Nenhum Pascal real escreve
+   `x := 1 end.`, entao o `;` passou a ser facultativo antes de `end`, `until`,
+   `else` e `.`. No meio do bloco ele continua obrigatorio.
+9. **Chamada de funcao em expressao.** O Anexo I usa `parametros2` apenas em
+   `inst -> ID ( parametros2 ) ;`, o que torna `x := f(1)` indeDerivavel. Como
+   `parametros2` ja e a lista de argumentos de chamada, foi acrescentada a
+   producao `fator -> variavel ( parametros2 )`.
 
 ---
 
@@ -468,7 +476,7 @@ Registradas para conhecimento:
 
 ```
 python -m pytest tests\ -q
-428 passed
+444 passed
 python tests\smoke_ui.py
 Todos os testes de fumaça passaram.
 ```
@@ -478,5 +486,5 @@ Todos os testes de fumaça passaram.
 | `tests/test_lexer.py` | 135 | palavras reservadas (caixa alta, baixa e mista), 20 simbolos, maximo casamento, identificadores validos e fora do limite, numeros em todas as formas ambiguas, literais, as tres formas de comentario com aninhamento, espacos em branco, contagem de linha e coluna, `CRLF`, caracteres invalidos, fechadores, recuperacao de erro, tabela de simbolos e avisos |
 | `tests/test_dfa.py` | 139 | determinismo, existencia de estados, alcancabilidade, aceitacao, ramos de palavra reservada, construcao do caminho dos numeros, dos literais e do intervalo `..`, maximo casamento, consistencia das tabelas exportadas |
 | `tests/test_grammar.py` | 26 | transcricao do Anexo I, presenca das extensoes, terminais da gramatica existentes em `tokens.py`, producoes derivadas de todas as nao terminais e geracao das linhas exibidas na interface |
-| `tests/test_parser.py` | 128 | programas validos e invalidos, `for` com `to` e `downto`, corpo simples e em bloco, `record`, enumeracao com e sem intervalo, acesso a campo, parametros com e sem parenteses, aviso de instrucao sem efeito, ausencia de falso positivo em chamada de procedimento, recuperacao de erro e integracao com `AnaliseService` |
+| `tests/test_parser.py` | 144 | programas validos e invalidos, `for` com `to` e `downto`, corpo simples e em bloco, `record`, enumeracao com e sem intervalo, acesso a campo, parametros com e sem parenteses, chamada de funcao em expressao, `;` final facultativo, aviso de instrucao sem efeito, ausencia de falso positivo em chamada de procedimento, recuperacao de erro e integracao com `AnaliseService` |
 | `tests/smoke_ui.py` | 60 verificacoes | interface completa com o analisador real ligado em `src/app.py`, incluindo a aba *Gramatica* |

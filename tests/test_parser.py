@@ -227,6 +227,50 @@ def test_campo_requer_nome() -> None:
     assert any("campo" in m for m in mensagens_de_erro("programa P; begin v. := 1; end."))
 
 
+# --- `;` facultativo na última instrução e chamada de função em expressão ---
+
+
+@pytest.mark.parametrize(
+    "fonte",
+    [
+        "programa P; var x: integer; begin x := 1 end.",
+        "programa P; begin end.",
+        "programa P; begin break end.",
+        "programa P; var i: integer; begin i := 1; i := 2 end.",
+        "programa P; var i: integer; begin while i > 0 do i := i - 1 end.",
+        "programa P; var i: integer; begin repeat i := i - 1 until i = 0 end.",
+        "programa P; var i: integer; begin for i := 1 to 3 do i := i + 1 end.",
+        "programa P; var i: integer; begin if i = 1 then i := 2 else i := 3 end.",
+        "programa P; var i: integer; begin if i = 1 then i := 2 end.",
+    ],
+)
+def test_ponto_e_virgula_final_e_facultativo(fonte: str) -> None:
+    sem_erros(fonte)
+
+
+def test_ponto_e_virgula_continua_exigido_no_meio_do_bloco() -> None:
+    assert any("';'" in m for m in mensagens_de_erro("programa P; var x: integer; begin x := 1 x := 2; end."))
+
+
+@pytest.mark.parametrize(
+    "fonte",
+    [
+        "programa P; function f(n: integer): integer; begin f := n end; begin x := f(1); end.",
+        "programa P; function f(n: integer): integer; begin f := n end; begin x := f(1) + f(2); end.",
+        "programa P; function f(n: integer): integer; begin f := n end; begin x := 1 + f(f(2)) * 3; end.",
+        "programa P; function f(): integer; begin f := 1 end; begin x := f(); end.",
+        "programa P; function f(n: integer): integer; begin f := n end; begin if f(1) > 0 then f(1); end.",
+    ],
+)
+def test_chamada_de_funcao_em_expressao(fonte: str) -> None:
+    sem_erros(fonte)
+
+
+def test_chamada_independe_dos_parenteses_da_declaracao() -> None:
+    # `procedure Q;` sem parametros continua aceito.
+    sem_erros("programa P; procedure Q; begin end; begin Q; end.")
+
+
 # --- Exemplo oficial com as extensões --------------------------------------
 
 
