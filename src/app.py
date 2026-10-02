@@ -7,13 +7,14 @@ from pathlib import Path
 from PySide6.QtWidgets import QApplication
 
 from .config import LANGUAGE_NAME
+from .lexer import Lexer
 from .main_window import MainWindow
-from .services.lexer_service import LexerService, NullLexerService
+from .services.lexer_service import LexerService
 from .theme import remember_system_appearance
 
 
 def build_lexer() -> LexerService:
-    return NullLexerService()
+    return Lexer()
 
 
 def create_window(
