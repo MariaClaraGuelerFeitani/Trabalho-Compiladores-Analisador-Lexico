@@ -1,13 +1,13 @@
-# Analisador Lexico
+# Analisadores Lexico e Sintatico
 
-Trabalho da disciplina de Compiladores: IDE e analisador lexico para um dialeto
-da linguagem Pascal.
+Trabalho da disciplina de Compiladores: IDE e analisadores lexico e sintatico
+para um dialeto da linguagem Pascal.
 
 | | |
 | --- | --- |
 | Autores | Blendhon Pontini Delfino, Maria Clara Gueler Feitani |
-| Implementacao | `src/lexer/` |
-| Testes | `tests/test_lexer.py` (135), `tests/test_dfa.py` (107) |
+| Implementacao | `src/lexer/` (lexico) e `src/parser/` (sintatico) |
+| Testes | 428: `test_lexer.py` (135), `test_dfa.py` (139), `test_grammar.py` (26), `test_parser.py` (128) |
 
 ---
 
@@ -18,9 +18,13 @@ de tokens, cada um com seu lexema e sua posicao no arquivo. Sobre esse
 resultado sao construidas a tabela de simbolos, o relatorio de erros lexicos e
 a especificacao do automato finito deterministico que reconhece a linguagem.
 
-A interface em PySide6 consome esses dados em sete paineis (Tokens, Erros,
-Avisos, Tabela de simbolos, Classes de tokens, DFA - estados e DFA - transicoes)
-e sublinha em vermelho, no editor, cada erro encontrado.
+O analisador sintatico consome essa sequencia e verifica se ela pertence a
+linguagem gramatical, derivada do Anexo I. Ele acrescenta a estrutura de
+controle `for` e, como ponto extra, os tipos `record` e enumeracao.
+
+A interface em PySide6 consome esses dados em oito paineis (Tokens, Erros,
+Avisos, Tabela de simbolos, Classes de tokens, DFA - estados, DFA - transicoes e
+Gramatica) e sublinha em vermelho, no editor, cada erro encontrado.
 
 ---
 
@@ -72,6 +76,9 @@ O limite de 15 caracteres de `ID` vem de `MAX_IDENTIFIER_LENGTH` em
 | `string` | `STRING` | `until` | `UNTIL` |
 | `ou` | `OU` | `break` | `BREAK` |
 | `e` | `E` | `continue` | `CONTINUE` |
+| `for` | `FOR` | `downto` | `DOWNTO` |
+| `to` | `TO` | `type` | `TYPE` |
+| `record` | `RECORD` | `enum` | `ENUM` |
 
 O reconhecimento **nao diferencia maiusculas de minculas**: `BEGIN`, `Begin` e
 `begin` produzem o mesmo token `BEGIN`, e o lexema guardado e sempre o texto
@@ -79,6 +86,10 @@ original como aparece no arquivo.
 
 A tabela tambem aceita `programa` como sinonimo de `program`, para que o modelo
 de programa do editor (`src/config.py`) seja analisado sem erro.
+
+As seis ultimas palavras reservadas (`for`, `to`, `downto`, `type`, `record` e
+`enum`) foram adicionadas na segunda parte do trabalho, junto com o simbolo
+`..` que permite escrever intervalos de enumeracao (`segunda..sexta`).
 
 ### 2.4 Simbolos
 
@@ -93,7 +104,7 @@ de programa do editor (`src/config.py`) seja analisado sem erro.
 | `<>` | `DIFERENTE_DE` | `(` | `ABRE_PARENTESES` |
 | `<` | `MENOR_QUE` | `)` | `FECHA_PARENTESES` |
 | `>` | `MAIOR_QUE` | `[` | `ABRE_COLCHETES` |
-| | | `]` | `FECHA_COLCHETES` |
+| `..` | `INTERVALO` | `]` | `FECHA_COLCHETES` |
 
 Os nomes dos tokens sao escritos em `UPPER_SNAKE_CASE` sem acentos, seguindo a
 convencao ja presente no projeto (`PONTO_E_VIRGULA`). Acentos aparecem somente
@@ -118,7 +129,7 @@ Na ambiguidade classica `(*x)`, o comentario tem precedencia e `(` so produz
 ## 3. O automato finito deterministico
 
 O reconhecedor e um unico AFD construido por refinamento das classes, com
-**119 estados** e **218 transicoes**, disponivel nas abas *DFA - estados* e
+**136 estados** e **251 transicoes**, disponivel nas abas *DFA - estados* e
 *DFA - Transicoes*.
 
 ### 3.1 Nomes de estado
@@ -218,7 +229,14 @@ q0 --':'--> q_dois_pontos (DOIS_PONTOS) --'='--> q_atribuicao (ATRIBUICAO)
 q0 --'<'--> q_menor      (MENOR_QUE)      --'='--> q_menor_ou_igual (MENOR_OU_IGUAL_QUE)
                                                    --'>'--> q_diferente (DIFERENTE_DE)
 q0 --'>'--> q_maior      (MAIOR_QUE)      --'='--> q_maior_ou_igual (MAIOR_OU_IGUAL_QUE)
+q0 --'.'--> q_ponto      (PONTO)          --'.'--> q_intervalo (INTERVALO)
 ```
+
+O ultimo par e o unico caso em que um simbolo aceita e um simbolo mais longo
+compartilham o mesmo prefixo: `q_ponto` aceita, `q_intervalo` aceita tambem.
+Como o scanner aplica maximo casamento e `a[1..5]` exige `..`, o resultado
+depende apenas da proxima palavra, sem lookahead. O automato nunca fica na
+posicao de aceitar os dois ao mesmo tempo para o mesmo sufixo lido.
 
 ### 3.7 Propriedades verificadas
 
@@ -302,14 +320,126 @@ primeira declaracao de cada identificador, na ordem em que aparece.
 | `procedimento` | `procedure N` | `procedure mostrar;` | `mostrar`, `procedimento` |
 | `funcao` | `function N: T` | `function somar(...): integer;` | `somar`, `funcao`, tipo de retorno `INTEGER` |
 | `parametro` | lista entre parenteses de subprograma | `(a: integer; b: integer)` | `a`, `parametro`, `INTEGER` |
+| `tipo_enumeracao` | secao `type` | `type cor = (vermelho, verde);` | `cor`, `tipo_enumeracao` |
+| `constante_enumeracao` | valores da enumeracao | `verde` | `verde`, `constante_enumeracao` |
+| `tipo_registro` | secao `type` | `type ponto = record ... end;` | `ponto`, `tipo_registro` |
+| `campo` | declaracoes internas do registro | `x, y: real;` | `x`, `campo`, `REAL` |
 
 Listas de nomes (`var x, y, z: real;`) geram uma entrada por identificador.
+Um tipo definido pelo usuario pode ser usado em variaveis, parametros e
+retornos (`var p: ponto;`), e a coluna de tipo passa a exibir o identificador do
+tipo em vez de um token primitivo. Um alias simples tambem e aceito
+(`type inteiro = integer;`).
+
 Redeclarar um nome **nao** e erro lexico: a primeira declaracao e mantida e um
 **aviso** aparece na aba *Avisos*, apesar do primeiro uso.
 
 ---
 
-## 7. Discrepâncias em relação à especificação
+## 7. O analisador sintatico
+
+### 7.1 A gramatica como dados
+
+`src/parser/grammar.py` guarda a gramatica do Anexo I como uma tabela de dados
+em vez de codigo: cada producao e um par `(nome_do_nao_terminal, alternativas)`.
+Isso tem tres vantagens praticas:
+
+- a aba *Gramatica* da interface mostra as 40 producoes sem duplicar a
+  especificacao em outra linguagem;
+- os testes podem percorrer a tabela e conferir que todo terminal aparece em
+  `src/lexer/tokens.py`, o que impede que a gramatica e o lexer saiam de sincronia;
+- as extensoes da segunda parte sao acrescentadas como um segundo conjunto de
+  producoes, deixando claro o que veio do enunciado e o que foi acrescido.
+
+```
+declaracoes -> declaracaoConst | declaracaoVar | declProc | ID (parametros) ; | ε
+inst        -> ID := exprOp ; | ID (parametros2) ; | ...
+declaracoes -> declaracaoTipo | ...              (extensao)
+inst        -> FOR ID := exprOp (TO | DOWNTO) exprOp DO instrucao   (extensao)
+```
+
+As producoes `ID`, `NUM`, `LITERAL`, `digitos` e `dig` do Anexo I sao Definicoes
+de lexema, nao regras de derivacao; elas ficam em `DEFINICOES_DE_LEXEMA` e sao
+excluidas da lista de terminais quando o conjunto e conferido contra o lexer.
+
+### 7.2 Descida recursiva
+
+`src/parser/parser.py` implementa um analisador por descida recursiva com um
+unico cursor sobre a tupla de tokens. A correspondencia entre os metodos e a
+gramatica e direta: `_programa` para `programa`, `_instrucoes` para
+`instrucoes`, `_expr` para `exprOp`, e assim por diante. Cada metodo consome
+o token esperado, ou emite um erro e devolve `False`.
+
+O resultado (`ResultadoSintatico`) carrega os erros, os avisos e as derivações
+aplicadas, alem de ser `ok` somente quando nao ha erro nenhum.
+
+### 7.3 Entradas da segunda parte
+
+**`for`**. A regra `inst` ganhou as alternativas com `TO` e `DOWNTO`. O
+inicio da sentenca e a unica posicao em que `for` e aceito:
+
+```
+for i := 1 to 10 do soma := soma + 1;
+for i := 10 downto 1 do begin f(i); end;
+```
+
+`TO` e `DOWNTO` sao intercambiaveis em qualquer ordem de `DO` e do corpo, e o
+corpo pode ser uma instrucao simples ou um bloco completo.
+
+**Aviso de instrucao sem efeito.** Uma instrucao que contem apenas um
+identificador seguido de `;` nao altera nenhum valor. O parser aceita a
+sentenca, mas registra um aviso na aba *Avisos*:
+
+```
+instrução sem efeito: 'x' não altera nenhum valor
+```
+
+O aviso e emitido em vez de virar erro porque o enunciado pede um aviso. Para
+que a regra nao reaja em falso positivo, o parser recebe a tabela de simbolos do
+lexer e so emite o aviso quando o identificador **nao** e um procedimento ou
+funcao declarados: nesse caso `Q;` e uma chamada legitima sem argumentos.
+
+**`record` e enumeracao**. Como ponto extra, a secao `type` foi estendida:
+
+```
+type cor = (vermelho, verde, azul);
+type dias = (segunda..sexta);          // intervalo, token ..
+type ponto = record x, y: real; rotulo: string; end;
+```
+
+O acesso a campo (`p.x`) recebeu a producao `variavel -> ID . ID`. Sem ela o
+`record` seria declarado e nunca lido, ja que o Anexo I nao preve acesso a
+campo.
+
+### 7.4 Erros sintaticos e recuperacao
+
+Erros e avisos do parser reaproveitam o mesmo tipo de dado dos lexicos e sao
+prefixados de `sintaxe:`, de modo que o sublinhado vermelho do editor funciona
+sem nenhuma alteracao na interface.
+
+```
+sintaxe: esperado 'end' para fechar o registro
+sintaxe: esperado ';' ao final da declaração de variável
+sintaxe: esperado 'program' ou 'programa': o arquivo está vazio
+```
+
+A recuperacao usa a estrategia *panic mode*: apos registrar um erro, o parser
+descarta tokens ate encontrar um ponto de sincronizacao (`;`, `.`, `begin`,
+`end`, `then`, `else`, `do`, `until`) e tenta retomar ali. Duas garantias
+evitam que o parser trave:
+
+1. todo laco que consome tokens verifica se a posicao avancou e, se nao avanco,
+   consome um token de qualquer forma;
+2. um arquivo vazio gera **um** erro, e nao uma cascata de seis.
+
+O parser so e executado quando o analisador lexico nao reportou nenhum erro
+(`AnaliseService` em `src/parser/service.py`). Sem essa guarda, uma fonte com
+um unico caractere invalido receberia dezenas de mensagens de sintaxe sobre uma
+estrutura que nunca chegou a ser reconhecida.
+
+---
+
+## 8. Discrepâncias em relação à especificação
 
 Registradas para conhecimento:
 
@@ -323,18 +453,30 @@ Registradas para conhecimento:
    erro, para nao perder a informacao do lexema.
 4. **Aspas duplicadas em literal.** Nao estao na regra `LITERAL`, mas sao
    padrao no Pascal e foram incluidas.
+5. **Parametros facultativos.** O Anexo I exige `PROCEDURE ID ( parametros )`,
+   mas o Pascal aceita `procedure Q;`. As duas formas sao aceitas.
+6. **`;` antes do `)`.** Em `procedure Q(a: integer; b: real)` o ultimo
+   parametro nao leva `;`. A lista de parametros foi escrita para acceptar as
+   duas formas, evitando um erro espurio na sintaxe mais comum do Pascal.
+7. **`;` antes do `else`.** O Anexo I mostra `instrucoes THEN inst ELSE inst`
+   sem `;` entre os ramos; fontes escritas com `;` antes do `else`, que e o
+   habito mais comum, tambem sao aceitas.
 
 ---
 
-## 8. Testes
+## 9. Testes
 
 ```
-python -m pytest tests\test_lexer.py tests\test_dfa.py -q
-242 passed
+python -m pytest tests\ -q
+428 passed
+python tests\smoke_ui.py
+Todos os testes de fumaça passaram.
 ```
 
 | Arquivo | Testes | Cobre |
 | --- | --- | --- |
-| `tests/test_lexer.py` | 135 | palavras reservadas (caixa alta, baixa e mista), 19 simbolos, maximo casamento, identificadores validos e fora do limite, numeros em todas as formas ambiguas, literais, as tres formas de comentario com aninhamento, espacos em branco, contagem de linha e coluna, `CRLF`, caracteres invalidos, fechadores, recuperacao de erro, tabela de simbolos e avisos |
-| `tests/test_dfa.py` | 107 | determinismo, existencia de estados, alcancabilidade, aceitacao, ramos de palavra reservada, construcao do caminho dos numeros e dos literais, maximo casamento, consistencia das tabelas exportadas |
-| `tests/smoke_ui.py` | 60 verificacoes | interface completa com o analisador real ligado em `src/app.py` |
+| `tests/test_lexer.py` | 135 | palavras reservadas (caixa alta, baixa e mista), 20 simbolos, maximo casamento, identificadores validos e fora do limite, numeros em todas as formas ambiguas, literais, as tres formas de comentario com aninhamento, espacos em branco, contagem de linha e coluna, `CRLF`, caracteres invalidos, fechadores, recuperacao de erro, tabela de simbolos e avisos |
+| `tests/test_dfa.py` | 139 | determinismo, existencia de estados, alcancabilidade, aceitacao, ramos de palavra reservada, construcao do caminho dos numeros, dos literais e do intervalo `..`, maximo casamento, consistencia das tabelas exportadas |
+| `tests/test_grammar.py` | 26 | transcricao do Anexo I, presenca das extensoes, terminais da gramatica existentes em `tokens.py`, producoes derivadas de todas as nao terminais e geracao das linhas exibidas na interface |
+| `tests/test_parser.py` | 128 | programas validos e invalidos, `for` com `to` e `downto`, corpo simples e em bloco, `record`, enumeracao com e sem intervalo, acesso a campo, parametros com e sem parenteses, aviso de instrucao sem efeito, ausencia de falso positivo em chamada de procedimento, recuperacao de erro e integracao com `AnaliseService` |
+| `tests/smoke_ui.py` | 60 verificacoes | interface completa com o analisador real ligado em `src/app.py`, incluindo a aba *Gramatica* |

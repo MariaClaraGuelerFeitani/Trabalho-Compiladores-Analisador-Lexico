@@ -13,6 +13,7 @@ from .tokens import (
     BEGIN,
     CONST,
     DOIS_PONTOS,
+    END,
     FECHA_COLCHETES,
     FECHA_COMENTARIO_BLOCO,
     FECHA_COMENTARIO_PARENTESE,
@@ -21,15 +22,19 @@ from .tokens import (
     ID,
     IGUALDADE_COMPARACAO,
     IGNORADOS,
+    INTERVALO,
     LITERAL,
     MARCA_COMENTARIO_LINHA,
     NUM,
     PONTO_E_VIRGULA,
     PROCEDURE,
     PROGRAM,
+    RECORD,
     SIMBOLOS,
+    SUBTRACAO,
     TIPOS_PRIMARIOS,
     TOKEN_CLASSES,
+    TYPE,
     VAR,
     VIRGULA,
 )
@@ -40,6 +45,7 @@ CLASSES_DECLARACAO: dict[str, str] = {
     FUNCTION: "funcao",
     CONST: "constante",
     VAR: "variavel",
+    TYPE: "tipo",
 }
 
 INICIO_DE_VALOR: frozenset[str] = frozenset({ATRIBUICAO, IGUALDADE_COMPARACAO})
@@ -69,13 +75,44 @@ PROGRAMA_EXEMPLO = (
     "end.\n"
 )
 
+# Exercita as extensões da parte 2: `for`, registro e enumeração.
+PROGRAMA_EXTENSOES = (
+    "programa Completo;\n"
+    "\n"
+    "type\n"
+    "  cor = (vermelho, verde, azul);\n"
+    "  dias = (segunda..sexta);\n"
+    "  ponto = record\n"
+    "            x, y: real;\n"
+    "            rotulo: string;\n"
+    "          end;\n"
+    "\n"
+    "const\n"
+    "  passos: integer := 3;\n"
+    "\n"
+    "var\n"
+    "  i: integer;\n"
+    "  p: ponto;\n"
+    "  c: cor;\n"
+    "\n"
+    "begin\n"
+    "  c := verde;\n"
+    "  for i := 1 to passos do\n"
+    "  begin\n"
+    "    p.x := p.x + 1.0;\n"
+    "  end;\n"
+    "  for i := passos downto 1 do\n"
+    "    i := i - 1;\n"
+    "end.\n"
+)
+
 
 class Lexer:
     """Analisador léxico do dialeto de Pascal descrito em `src/lexer/tokens.py`.
 
-    O reconhecimento usa máximo casamento sobre o autômato finito determinístico
-    de `src/lexer/dfa.py`. Comentários e espaços em branco são descartados antes
-    do autômato, por seremClasses que não produzem token.
+O reconhecimento usa máximo casamento sobre o autômato finito determinístico
+    de `src/lexer/dfa.py`. Comentários e espaços em branco são descartados antes do
+    autômato, por serem classes que não produzem token.
     """
 
     def __init__(self) -> None:
@@ -350,11 +387,101 @@ class Lexer:
                 profundidade = max(0, profundidade - 1)
             elif tipo == BEGIN:
                 secao = ""
+            elif tipo == ID and secao == "tipo":
+                indice = self._declarar_tipo(tokens, indice)
+                continue
             elif tipo == ID and secao and self._e_declaracao(tokens, indice):
                 classe = "parametro" if profundidade and secao == "parametros" else secao
                 indice = self._declarar_lista(tokens, indice, classe)
                 continue
             indice += 1
+
+    def _nome_do_tipo(self, tokens: tuple[Token, ...], indice: int) -> str:
+        """Nome do tipo em `indice`: primário (`INTEGER`) ou definido pelo usuário (`Ponto`)."""
+        if indice >= len(tokens):
+            return ""
+        token = tokens[indice]
+        if token.tipo in TIPOS_PRIMARIOS:
+            return token.tipo
+        return token.lexema if token.tipo == ID else ""
+
+    def _declarar_tipo(self, tokens: tuple[Token, ...], indice: int) -> int:
+        nome = tokens[indice]
+        cursor = indice + 1
+        if cursor >= len(tokens) or tokens[cursor].tipo != IGUALDADE_COMPARACAO:
+            return indice + 1
+        cursor += 1
+        if cursor >= len(tokens):
+            return cursor
+        if tokens[cursor].tipo in TIPOS_PRIMARIOS:
+            self._registrar(nome, "tipo", tokens[cursor].tipo)
+            return self._consumir_ate(tokens, cursor + 1, PONTO_E_VIRGULA)
+        if tokens[cursor].tipo == ABRE_PARENTESES:
+            self._registrar(nome, "tipo_enumeracao")
+            return self._declarar_enumeracao(tokens, cursor)
+        if tokens[cursor].tipo == RECORD:
+            self._registrar(nome, "tipo_registro")
+            return self._declarar_registro(tokens, cursor)
+        alvo = self._nome_do_tipo(tokens, cursor)
+        if alvo:
+            self._registrar(nome, "tipo", alvo)
+            return self._consumir_ate(tokens, cursor + 1, PONTO_E_VIRGULA)
+        return cursor
+
+    def _declarar_enumeracao(self, tokens: tuple[Token, ...], indice: int) -> int:
+        cursor = indice + 1
+        while cursor < len(tokens) and tokens[cursor].tipo != FECHA_PARENTESES:
+            if tokens[cursor].tipo != ID:
+                break
+            self._registrar(tokens[cursor], "constante_enumeracao")
+            cursor += 1
+            if cursor < len(tokens) and tokens[cursor].tipo == INTERVALO:
+                cursor = self._pular_ate_numero(tokens, cursor + 1)
+            if cursor < len(tokens) and tokens[cursor].tipo == VIRGULA:
+                cursor += 1
+                continue
+            break
+        return self._consumir_ate(tokens, cursor, PONTO_E_VIRGULA)
+
+    def _pular_ate_numero(self, tokens: tuple[Token, ...], indice: int) -> int:
+        cursor = indice
+        while cursor < len(tokens) and tokens[cursor].tipo in (SUBTRACAO, NUM):
+            cursor += 1
+        return cursor
+
+    def _declarar_registro(self, tokens: tuple[Token, ...], indice: int) -> int:
+        cursor = indice + 1
+        while cursor < len(tokens) and tokens[cursor].tipo != END:
+            if tokens[cursor].tipo != ID:
+                cursor += 1
+                continue
+            primeiro = tokens[cursor]
+            nomes = [primeiro.lexema]
+            cursor += 1
+            while (
+                cursor + 1 < len(tokens)
+                and tokens[cursor].tipo == VIRGULA
+                and tokens[cursor + 1].tipo == ID
+            ):
+                nomes.append(tokens[cursor + 1].lexema)
+                cursor += 2
+            tipo = ""
+            if cursor < len(tokens) and tokens[cursor].tipo == DOIS_PONTOS:
+                cursor += 1
+                tipo = self._nome_do_tipo(tokens, cursor)
+                if tipo:
+                    cursor += 1
+            if cursor < len(tokens) and tokens[cursor].tipo == PONTO_E_VIRGULA:
+                cursor += 1
+            for nome in nomes:
+                self._registrar(Token(ID, nome, primeiro.linha, primeiro.coluna), "campo", tipo)
+        return cursor + 1 if cursor < len(tokens) else cursor
+
+    def _consumir_ate(self, tokens: tuple[Token, ...], indice: int, alvo: str) -> int:
+        cursor = indice
+        while cursor < len(tokens) and tokens[cursor].tipo != alvo:
+            cursor += 1
+        return cursor + 1 if cursor < len(tokens) else cursor
 
     def _declarar_cabecalho(
         self, tokens: tuple[Token, ...], indice: int, secao: str
@@ -374,9 +501,7 @@ class Lexer:
         while cursor < len(tokens):
             tipo = tokens[cursor].tipo
             if tipo == DOIS_PONTOS:
-                if cursor + 1 < len(tokens) and tokens[cursor + 1].tipo in TIPOS_PRIMARIOS:
-                    return tokens[cursor + 1].tipo
-                return ""
+                return self._nome_do_tipo(tokens, cursor + 1)
             if tipo in (PONTO_E_VIRGULA, BEGIN):
                 return ""
             cursor += 1
@@ -409,8 +534,8 @@ class Lexer:
         valor = ""
         if cursor < len(tokens) and tokens[cursor].tipo == DOIS_PONTOS:
             cursor += 1
-            if cursor < len(tokens) and tokens[cursor].tipo in TIPOS_PRIMARIOS:
-                tipo = tokens[cursor].tipo
+            tipo = self._nome_do_tipo(tokens, cursor)
+            if tipo:
                 cursor += 1
         if cursor < len(tokens) and tokens[cursor].tipo in INICIO_DE_VALOR:
             cursor += 1
@@ -435,4 +560,4 @@ class Lexer:
             )
 
 
-__all__ = ["Lexer", "PROGRAMA_EXEMPLO"]
+__all__ = ["Lexer", "PROGRAMA_EXEMPLO", "PROGRAMA_EXTENSOES"]

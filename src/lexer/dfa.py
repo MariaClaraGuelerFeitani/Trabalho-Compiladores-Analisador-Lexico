@@ -6,6 +6,7 @@ from .tokens import (
     ATRIBUICAO,
     DIFERENTE_DE,
     ID,
+    INTERVALO,
     LITERAL,
     MAIOR_OU_IGUAL_QUE,
     MAIOR_QUE,
@@ -39,6 +40,8 @@ ESTADO_MENOR_OU_IGUAL = "q_menor_ou_igual"
 ESTADO_DIFERENTE = "q_diferente"
 ESTADO_MAIOR = "q_maior"
 ESTADO_MAIOR_OU_IGUAL = "q_maior_ou_igual"
+ESTADO_PONTO = "q_ponto"
+ESTADO_INTERVALO = "q_intervalo"
 
 PREFIXO_PALAVRA = "q_kw_"
 
@@ -50,7 +53,7 @@ QUEBRA_DE_LINHA = "quebra de linha"
 
 NOMES_SIMBOLOS_SIMPLES: dict[str, str] = {
     ";": "q_ponto_e_virgula",
-    ".": "q_ponto",
+    ".": ESTADO_PONTO,
     ",": "q_virgula",
     "=": "q_igualdade",
     "+": "q_adicao",
@@ -73,6 +76,7 @@ ESTRUTURAS_SIMBOLOS: dict[str, tuple[str, dict[str, tuple[str, str]]]] = {
         },
     ),
     ">": (ESTADO_MAIOR, {"=": (ESTADO_MAIOR_OU_IGUAL, MAIOR_OU_IGUAL_QUE)}),
+    ".": (ESTADO_PONTO, {".": (ESTADO_INTERVALO, INTERVALO)}),
 }
 
 PRIMEIRAS_LETRAS: frozenset[str] = frozenset(palavra[0] for palavra in PALAVRAS_RESERVADAS)

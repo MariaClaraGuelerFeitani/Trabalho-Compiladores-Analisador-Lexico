@@ -235,7 +235,47 @@ def test_classes_de_token_incluem_a_regex_do_identificador() -> None:
     assert identificador.description
 
 
+def test_intervalo_nao_e_confundido_com_ponto() -> None:
+    assert dfa.simular("..")[1] == "INTERVALO"
+    assert dfa.simular("...")[1] == "INTERVALO"
+    assert dfa.simular(".")[1] == "PONTO"
+    assert dfa.delta(dfa.ESTADO_PONTO, ".") == dfa.ESTADO_INTERVALO
+
+
+@pytest.mark.parametrize(
+    ("palavra", "token"),
+    [
+        ("for", "FOR"),
+        ("to", "TO"),
+        ("downto", "DOWNTO"),
+        ("type", "TYPE"),
+        ("record", "RECORD"),
+        ("enum", "ENUM"),
+    ],
+)
+def test_palavras_da_parte_2(palavra: str, token: str) -> None:
+    assert dfa.simular(palavra)[1] == token
+    assert PALAVRAS_RESERVADAS[palavra] == token
+
+
+@pytest.mark.parametrize("palavra", ["for", "to", "downto", "type", "record", "enum"])
+def test_palavras_da_parte_2_nao_diferenciam_caixa(palavra: str) -> None:
+    assert dfa.simular(palavra.upper())[1] == PALAVRAS_RESERVADAS[palavra]
+
+
+@pytest.mark.parametrize("prefixo", ["fora", "toy", "typef", "records", "enumero"])
+def test_prefixo_de_palavra_nova_e_identificador(prefixo: str) -> None:
+    assert dfa.simular(prefixo)[1] == ID
+
+
+def test_identificador_que_engole_palavra_reservada_com_prefixo_mais_longo() -> None:
+    # `downt` segue o ramo de `downto` depois de `do` e nenhum estado do caminho
+    # aceita; o máximo casamento volta ao último estado de aceitação (`DO`).
+    assert dfa.simular("downt")[1] == "DO"
+    assert dfa.simular("downto")[1] == "DOWNTO"
+
+
 def test_numero_de_estados_e_estavel() -> None:
-    assert len(dfa.ESTADOS) == 119
-    assert len(dfa.TRANSICOES) == 218
-    assert len(dfa.ACEITACAO) == 46
+    assert len(dfa.ESTADOS) == 136
+    assert len(dfa.TRANSICOES) == 251
+    assert len(dfa.ACEITACAO) == 53

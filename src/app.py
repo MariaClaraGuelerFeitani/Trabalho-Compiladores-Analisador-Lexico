@@ -7,14 +7,15 @@ from pathlib import Path
 from PySide6.QtWidgets import QApplication
 
 from .config import LANGUAGE_NAME
-from .lexer import Lexer
 from .main_window import MainWindow
+from .parser.service import AnaliseService
 from .services.lexer_service import LexerService
 from .theme import remember_system_appearance
 
 
 def build_lexer() -> LexerService:
-    return Lexer()
+    """Serviço de análise mostrado no IDE: léxico e sintático encadeados."""
+    return AnaliseService()
 
 
 def create_window(

@@ -31,11 +31,18 @@ BREAK = "BREAK"
 CONTINUE = "CONTINUE"
 OU = "OU"
 E = "E"
+FOR = "FOR"
+TO = "TO"
+DOWNTO = "DOWNTO"
+TYPE = "TYPE"
+RECORD = "RECORD"
+ENUM = "ENUM"
 
 PONTO_E_VIRGULA = "PONTO_E_VIRGULA"
 PONTO = "PONTO"
 VIRGULA = "VIRGULA"
 DOIS_PONTOS = "DOIS_PONTOS"
+INTERVALO = "INTERVALO"
 IGUALDADE_COMPARACAO = "IGUALDADE_COMPARACAO"
 ATRIBUICAO = "ATRIBUICAO"
 DIFERENTE_DE = "DIFERENTE_DE"
@@ -76,6 +83,12 @@ PALAVRAS_RESERVADAS: dict[str, str] = {
     "continue": CONTINUE,
     "ou": OU,
     "e": E,
+    "for": FOR,
+    "to": TO,
+    "downto": DOWNTO,
+    "type": TYPE,
+    "record": RECORD,
+    "enum": ENUM,
 }
 
 SIMBOLOS: tuple[tuple[str, str], ...] = (
@@ -83,6 +96,7 @@ SIMBOLOS: tuple[tuple[str, str], ...] = (
     ("<=", MENOR_OU_IGUAL_QUE),
     (">=", MAIOR_OU_IGUAL_QUE),
     ("<>", DIFERENTE_DE),
+    ("..", INTERVALO),
     (";", PONTO_E_VIRGULA),
     (".", PONTO),
     (",", VIRGULA),

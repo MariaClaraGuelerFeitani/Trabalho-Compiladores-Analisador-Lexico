@@ -1,11 +1,14 @@
-# Trabalho de Compiladores - Analisador Lexico
+# Trabalho de Compiladores - Analisadores Lexico e Sintatico
 
-IDE e analisador lexico para um dialeto da linguagem Pascal, desenvolvido como
-trabalho da disciplina de Compiladores.
+IDE e analisadores lexico e sintatico para um dialeto da linguagem Pascal,
+desenvolvido como trabalho da disciplina de Compiladores.
 
-O analisador lexico esta implementado em `src/lexer/` e ligado a interface em
-`src/app.py` (`build_lexer`). A analise sintatica continua sendo apenas o
-esqueleto em `src/parser/`.
+O analisador lexico esta implementado em `src/lexer/` e o analisador sintatico em
+`src/parser/`; ambos estao ligados a interface em `src/app.py` (`build_lexer`).
+
+A segunda parte do trabalho acrescenta ao compilador: a estrutura de controle
+`for`, o aviso de "instrucao sem efeito" e, como ponto extra, os tipos `record` e
+enumeracao.
 
 ## Requisitos
 
@@ -23,18 +26,22 @@ python main.py
 ## Testes
 
 ```
-python -m pytest tests\test_lexer.py tests\test_dfa.py -q
+python -m pytest tests\ -q
 python tests\smoke_ui.py
 ```
 
-`test_lexer.py` cobre palavras reservadas, simbolos, identificadores, numeros,
-literais, comentarios, erros, recuperacao e tabela de simbolos (135 testes).
-`test_dfa.py` cobre os invariantes do automato: determinismo, alcancabilidade,
-aceitacao e maximo casamento (107 testes).
+| Arquivo | Testes | Cobre |
+| --- | --- | --- |
+| `tests/test_lexer.py` | 135 | palavras reservadas, simbolos, identificadores, numeros, literais, comentarios, erros e tabela de simbolos |
+| `tests/test_dfa.py` | 139 | invariantes do automato: determinismo, alcancabilidade, aceitacao e maximo casamento |
+| `tests/test_grammar.py` | 26 | transcricao do Anexo I, extensoes da parte 2 e consistencia terminal/token |
+| `tests/test_parser.py` | 128 | programas validos e invalidos, `for`, `record`, enumeracao, aviso de instrucao sem efeito e recuperacao |
 
-O teste de fumaça abre a interface em modo `offscreen`, digita um programa e
-valida aba por aba (tokens, erros, avisos, simbolos, classes de tokens, DFA),
-além das preferencias (tema, fonte, cores) e da persistencia em disco.
+Total: 428 testes.
+
+O teste de fumaca abre a interface em modo `offscreen`, digita um programa e
+valida aba por aba (tokens, erros, avisos, simbolos, classes de tokens, DFA e
+gramatica), alem das preferencias (tema, fonte, cores) e da persistencia em disco.
 
 ## Atalhos
 
@@ -44,44 +51,46 @@ além das preferencias (tema, fonte, cores) e da persistencia em disco.
 | `Ctrl+O` | Abrir programa |
 | `Ctrl+S` | Salvar |
 | `Ctrl+Shift+S` | Salvar como |
-| `Ctrl+B` | Compilar (análise léxica imediata) |
+| `Ctrl+B` | Compilar (análise léxica e sintática imediatas) |
 | `Ctrl+L` | Limpar a aba Saída |
 | `Ctrl+,` | Preferências (tema, fonte, cores) |
 | `Ctrl++` / `Ctrl+-` / `Ctrl+0` | Aumentar / diminuir / restaurar a fonte |
 
 ## Funcionalidades da interface
 
-- Editor com numero da linha corrente e sublinhado vermelho para erros lexicos,
+- Editor com numero da linha corrente e sublinhado vermelho para erros lexico-sintaticos,
   com analise ao vivo durante a digitacao (debounce de 250 ms)
 - Abas: Tokens, Erros, Avisos, Tabela de Simbolos, Classes de Tokens,
-  DFA - Estados e DFA - Transicoes
+  DFA - Estados, DFA - Transicoes e Gramatica
 - Preferencias em JSON (tema claro/escuro/sistema, fonte, cores do editor e do
   terminal) com visualizacao ao vivo
-- Numero maximo de identificadores, comentarios em `//`, `{ }` e `(* *)`,
+- Numero maximo de identificadores (15 caracteres), comentarios em `//`, `{ }` e `(* *)`,
   palavras reservadas em minusculas - tratados pelo analisador em `src/lexer/`
 
-## Analisador lexico
+## Analisadores
 
 | Arquivo | Responsabilidade |
 | --- | --- |
 | `src/lexer/tokens.py` | Tabelas de palavras reservadas e simbolos, regex e classes de tokens |
-| `src/lexer/dfa.py` | AutOmato finito deterministico unico mesclado (119 estados, 218 transicoes) |
+| `src/lexer/dfa.py` | Automato finito deterministico unico mesclado (136 estados, 251 transicoes) |
 | `src/lexer/lexer.py` | Scanner com maximo casamento, comentarios e tabela de simbolos |
 | `src/lexer/error_recovery.py` | Criacao de erros lexicos e pontos de sincronizacao |
-| `src/lexer/models.py` | Tabela de simbolos do programa |
+| `src/parser/grammar.py` | Anexo I em forma de dados, mais as extensoes da parte 2 |
+| `src/parser/parser.py` | Analisador sintatico por descida recursiva, com recuperacao |
+| `src/parser/service.py` | Encadeia lexico e sintatico em um unico `AnalysisResult` |
 
-A construcao do autOmato e as regras de identificacao estao descritas em
+A construcao do automato e as regras de identificacao estao descritas em
 `relatorio/relatorio.md`.
 
 ## Estrutura do projeto
 
 ```
 src/
-  app.py                 Fabrica da janela; ponto de conexao do analisador (build_lexer)
+  app.py                 Fabrica da janela; ponto de conexao da analise (build_lexer)
   config.py              Constantes: nome da linguagem, extensao .pas, fonte
   settings.py            Preferencias do usuario (JSON)
   theme.py               Paletas claro/escuro e restauracao do tema do sistema
-  main_window.py         Janela principal, menus, atalhos
+  main_window.py         Janela principal, menus, atalhos, paineis de saida
   editor/
     code_editor.py       Editor com numero de linha e sublinhado de erro
   panels/
@@ -90,16 +99,18 @@ src/
     settings_dialog.py   Dialogo de preferencias
   services/
     file_service.py      Abrir/salvar arquivos
-    analysis_controller.py  Analise com debounce
+    analysis_controller.py  Analise com debounce de 250 ms
     lexer_service.py     Contrato LexerService e modelos de dados
-  lexer/                 tokens, DFA, lexer, recuperacao de erros
-  parser/                esqueleto: gramatica com "for" e analise sintatica
+  lexer/                 tokens, DFA, scanner, recuperacao de erros
+  parser/                grammar, parser, service
 tests/
   smoke_ui.py            Teste de fumaca da interface
   test_lexer.py          Testes do analisador lexico
   test_dfa.py            Testes do automato
+  test_grammar.py        Testes da gramatica
+  test_parser.py         Testes do analisador sintatico
 relatorio/
-  relatorio.md           Relatorio do analisador lexico
+  relatorio.md           Relatorio do trabalho
 ```
 
 ## Mapa dos requisitos
@@ -110,16 +121,18 @@ relatorio/
 | 1b IDE | interface em `src/main_window.py` e `src/panels/` |
 | 1c Case-insensitive | `PALAVRAS_RESERVADAS` em `src/lexer/tokens.py`, `dfa.simbolo_lido` normaliza a letra lida |
 | 1d Identificadores (max. 15, letra inicial) | `REGEX_IDENTIFICADOR` em `src/lexer/tokens.py`, validacao em `Lexer._validar` |
-| 1e Palavras reservadas | `PALAVRAS_RESERVADAS` em `src/lexer/tokens.py`,ACEITACAO em `src/lexer/dfa.py` |
+| 1e Palavras reservadas | `PALAVRAS_RESERVADAS` em `src/lexer/tokens.py`, `ACEITACAO` em `src/lexer/dfa.py` |
 | 1f Comentarios | `Lexer._consumir_comentario` em `src/lexer/lexer.py` |
 | 1g Espacos em branco | `Lexer._consumir_espaco` em `src/lexer/lexer.py` |
 | 1h Erros com linha/coluna e sublinhado | `src/lexer/error_recovery.py` + `src/editor/code_editor.py` |
+| 1i Analise enquanto o usuario digita | `AnalysisController` com `QTimer` de 250 ms |
 | 1i Tabela de simbolos | `Lexer._montar_tabela_de_simbolos` e `SymbolTable` em `src/lexer/models.py` |
-| 1j Recuperacao de erros | `src/lexer/error_recovery.py` e `Lexer._recuperar` |
+| 1j Recuperacao de erros | `src/lexer/error_recovery.py`, `Lexer._recuperar` e `Parser._sincronizar` |
 | 1k DFA deterministico | `src/lexer/dfa.py` (verificado em `tests/test_dfa.py`) |
-| 1l Relatorio e tabela de tokens | `relatorio/relatorio.md` e aba Tokens da interface |
-| 2 Estrutura de controle `for` | `src/parser/grammar.py` (a implementar) |
-| 2 Warning de instrucao sem efeito | `src/parser/parser.py` (a implementar) |
+| 1l Relatorio e tabela de tokens | `relatorio/relatorio.md`, aba *Classes de tokens* e aba *Gramatica* |
+| 2 Estrutura de controle `for` | `Parser._instrucao_para` e `src/parser/grammar.py` |
+| 2 Warning de instrucao sem efeito | `Parser._instrucao_identificador` |
+| 2 Ponto extra: registro e enumeracao | `Parser._corpo_registro`, `Parser._lista_enumeracao`, `Lexer._declarar_registro` |
 
 ### Decisoes de projeto
 
@@ -130,9 +143,18 @@ relatorio/
   (`src/config.py`) analise sem erro.
 - Identificador com mais de 15 caracteres gera **erro lexico** mas ainda e
   emitido como token `ID`, para que a recuperacao continue.
-- A regra `ID` e ASCII estrita: `número` gera erro no `ú`.
+- A regra `ID` e ASCII estrita: `numero` gera erro no `u` acentuado.
 - `'` dobrado dentro de literal (`'d''art'`) equivale a um apostrofo, como no
   Pascal padrao.
+- O analisador sintatico so roda quando o lexico nao encontrou erro, para nao
+  multiplicar mensagens em cascata sobre uma fonte ja quebrada.
+- Erros e avisos do parser usam o mesmo tipo de dado dos lexicos e sao
+  precedidos de `sintaxe:`, de modo que reaproveitam o sublinhado vermelho do
+  editor sem alteracao na interface.
+- A lista de parametros e facultativa (`procedure Q;`), como no Pascal, e o
+  `;` antes do `)` tambem e opcional.
+- As secoes `var`, `const` e `type` podem aparecer em qualquer ordem antes das
+  subrotinas; a gramatica do Anexo I admite um conjunto menor.
 
 ## Autores
 

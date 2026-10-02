@@ -21,6 +21,7 @@ from .editor.code_editor import CodeEditor
 from .panels.console_view import ConsoleView
 from .panels.data_table import DataTable
 from .panels.settings_dialog import SettingsDialog
+from .parser.grammar import linhas_da_gramatica
 from .services.analysis_controller import AnalysisController
 from .services.file_service import UNSAVED_TITLE, FileService
 from .services.lexer_service import AnalysisResult, LexerService
@@ -42,6 +43,7 @@ COLUMNS_SYMBOLS = ["Identificador", "Classe", "Tipo", "Valor", "Linha"]
 COLUMNS_TOKEN_CLASSES = ["Token", "Expressao Regular", "Descricao"]
 COLUMNS_DFA_STATES = ["Estado", "Aceita", "Token associado"]
 COLUMNS_DFA_TRANSITIONS = ["Estado de origem", "Simbolo", "Estado de destino"]
+COLUMNS_GRAMATICA = ["Producao"]
 
 
 def _optional_color(value: str) -> QColor | None:
@@ -91,6 +93,7 @@ class MainWindow(QMainWindow):
         self.token_classes_table = DataTable(COLUMNS_TOKEN_CLASSES)
         self.dfa_states_table = DataTable(COLUMNS_DFA_STATES)
         self.dfa_transitions_table = DataTable(COLUMNS_DFA_TRANSITIONS)
+        self.grammar_table = DataTable(COLUMNS_GRAMATICA)
 
         self.output_tabs = QTabWidget()
         self.output_tabs.setObjectName("outputTabs")
@@ -106,6 +109,7 @@ class MainWindow(QMainWindow):
         self.dfa_tabs.addTab(self.token_classes_table, "Classes de tokens")
         self.dfa_tabs.addTab(self.dfa_states_table, "DFA - estados")
         self.dfa_tabs.addTab(self.dfa_transitions_table, "DFA - transicoes")
+        self.dfa_tabs.addTab(self.grammar_table, "Gramatica")
         self._add_dock("Tokens e automato", self.dfa_tabs, Qt.DockWidgetArea.RightDockWidgetArea)
 
     def _add_dock(self, title: str, widget: QWidget, area: Qt.DockWidgetArea) -> QDockWidget:
@@ -339,6 +343,7 @@ class MainWindow(QMainWindow):
         self.dfa_transitions_table.set_rows(
             [(t.state, t.symbol, t.target) for t in result.dfa_transitions]
         )
+        self.grammar_table.set_rows([(linha,) for linha in linhas_da_gramatica()])
 
         self._update_count_labels(result)
         self.state_label.setText(
