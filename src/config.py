@@ -1,9 +1,11 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtGui import QFont
 
-LANGUAGE_NAME = "Trabalho de Compiladores"
+LANGUAGE_NAME = "Guaxinim"
 
 SOURCE_EXTENSION = "pas"
 
@@ -26,6 +28,14 @@ NEW_FILE_TEMPLATE = (
     "begin\n"
     "end.\n"
 )
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+IMAGE_DIR = PROJECT_ROOT / "img"
+BUNDLED_BACKGROUND_IMAGE = IMAGE_DIR / "background.jpg"
+
+
+def default_background_image() -> str:
+    return str(BUNDLED_BACKGROUND_IMAGE) if BUNDLED_BACKGROUND_IMAGE.is_file() else ""
 
 
 def monospace_font(family: str = "", size: int = 0) -> QFont:

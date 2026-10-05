@@ -215,13 +215,11 @@ O reconhecimento usa máximo casamento sobre o autômato finito determinístico
         while not self._fim:
             if self._fonte.startswith(abertura, self._posicao):
                 profundidade += 1
-                self._avancar()
-                self._avancar()
+                self._consumir_delimitador(abertura)
                 continue
             if self._fonte.startswith(fechamento, self._posicao):
                 profundidade -= 1
-                self._avancar()
-                self._avancar()
+                self._consumir_delimitador(fechamento)
                 if profundidade == 0:
                     return
                 continue
@@ -235,6 +233,12 @@ O reconhecimento usa máximo casamento sobre o autômato finito determinístico
                 len(abertura),
             )
         )
+
+    def _consumir_delimitador(self, delimitador: str) -> None:
+        for _ in delimitador:
+            if self._fim:
+                return
+            self._avancar()
 
     def _consumir_lexema(self) -> None:
         linha, coluna = self._linha, self._coluna

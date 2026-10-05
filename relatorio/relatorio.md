@@ -7,7 +7,7 @@ para um dialeto da linguagem Pascal.
 | --- | --- |
 | Autores | Blendhon Pontini Delfino, Maria Clara Gueler Feitani |
 | Implementacao | `src/lexer/` (lexico) e `src/parser/` (sintatico) |
-| Testes | 444: `test_lexer.py` (135), `test_dfa.py` (139), `test_grammar.py` (26), `test_parser.py` (144) |
+| Testes | 505: `test_lexer.py` (135), `test_dfa.py` (139), `test_grammar.py` (26), `test_parser.py` (144), `test_highlighter.py` (38), `test_background.py` (23) |
 
 ---
 
@@ -476,7 +476,7 @@ Registradas para conhecimento:
 
 ```
 python -m pytest tests\ -q
-444 passed
+505 passed
 python tests\smoke_ui.py
 Todos os testes de fumaça passaram.
 ```
@@ -487,4 +487,78 @@ Todos os testes de fumaça passaram.
 | `tests/test_dfa.py` | 139 | determinismo, existencia de estados, alcancabilidade, aceitacao, ramos de palavra reservada, construcao do caminho dos numeros, dos literais e do intervalo `..`, maximo casamento, consistencia das tabelas exportadas |
 | `tests/test_grammar.py` | 26 | transcricao do Anexo I, presenca das extensoes, terminais da gramatica existentes em `tokens.py`, producoes derivadas de todas as nao terminais e geracao das linhas exibidas na interface |
 | `tests/test_parser.py` | 144 | programas validos e invalidos, `for` com `to` e `downto`, corpo simples e em bloco, `record`, enumeracao com e sem intervalo, acesso a campo, parametros com e sem parenteses, chamada de funcao em expressao, `;` final facultativo, aviso de instrucao sem efeito, ausencia de falso positivo em chamada de procedimento, recuperacao de erro e integracao com `AnaliseService` |
+| `tests/test_highlighter.py` | 38 | realce por classe de token, negrito em palavra reservada e italico em comentario, cores padrao dos dois temas, preferencia sobrepondo o tema, as tres formas de comentario com aninhamento e multiplas linhas, token que passa do fim da linha, erro lexico sem derrubar o realce, repintura sem `textChanged` espurio e integracao com a janela principal |
+| `tests/test_background.py` | 23 | presenca da imagem que acompanha o projeto, caminho valido, vazio e inexistente, faixa de opacidade, pintura efetiva do fundo lida pixel a pixel, ajuste que cobre a area em quatro combinacoes de proporcao sem deixar canto vazio, proporcao preservada, ampliacao de imagem menor que a area, reuso e invalidacao da escala, persistencia das preferencias e faixa propria do campo de opacidade |
 | `tests/smoke_ui.py` | 60 verificacoes | interface completa com o analisador real ligado em `src/app.py`, incluindo a aba *Gramatica* |
+
+### 9.1 Realce sintatico
+
+Alem da analise, o editor distingue visualmente as classes de token, para que
+programas-fonte sejam lidos com mais rapidez. O realcador fica em
+`src/editor/highlighter.py` e classifica cada token pela sua classe:
+
+| Categoria | Tokens | Preferencia |
+| --- | --- | --- |
+| Palavra reservada | `program`, `begin`, `end`, `if`, `while`, ... (em negrito) | `keyword_color` |
+| Tipo primario | `Integer`, `Real`, `String`, `Boolean`, `Char` | `primitive_type_color` |
+| Numero | inteiros, reais e o intervalo `..` | `number_color` |
+| Literal | cadeias entre aspas | `literal_color` |
+| Comentario | `//`, `{ }` e `(* *)`, em italico | `comment_color` |
+
+Identificadores e simbolos ficam com a cor normal do tema: o realce e estritamente
+lexico e nao faz analise semantica de nomes, de modo que um identificador nunca
+e pintado como palavra reservada por similarities ortograficas.
+
+Como o lexer descarta os comentarios da sequencia de tokens, o realcador os
+reconhece sobre o proprio texto, percorrendo o documento uma vez e guardando em
+`previousBlockState` o bloco de comentario em aberto. O estado `-1` (nenhum
+comentario) e o estado `0` (comentario aninhado) sao normalizados para que a
+pintura possa ser refeita a qualquer momento.
+
+Cada categoria tem cor padrao para o tema claro e para o escurecido. As cores
+sao ajustaveis na aba *Realce* das preferencias, que mostra uma previa ao vivo e
+aceita `#rrggbb` ou nomes de cor do Qt; a preferencia vazia mantem a cor do tema.
+Ao trocar as cores o documento inteiro e repintado.
+
+Como o realcador trabalha sobre o mesmo documento que dispara `textChanged`, a
+repintura e feita com os sinais do documento bloqueados. `rehighlight()` notifica
+o documento, e sem esse bloqueio o editor leria a propria pintura como edicao do
+usuario: marcaria o programa como modificado e pediria uma nova analise, o que
+realimenta o ciclo analise -> realce -> analise sem nunca terminar. O
+`tests/test_highlighter.py` cobre tanto a ausencia de `textChanged` espurio quanto
+o fato de abrir a janela nao marcar o programa como modificado.
+
+### 9.2 Imagem de fundo do editor
+
+Alem do realce, o editor aceita uma imagem de fundo. O padrao e o arquivo que
+acompanha o projeto, em `img/`, resolving `default_background_image()` em
+`src/config.py`; se a pasta nao existir, o padrao vira string vazia e a IDE
+simplesmente abre sem fundo.
+
+| Preferencia | Campo | Faixa |
+| --- | --- | --- |
+| Imagem | `background_image_path` | caminho de arquivo, vazio = sem imagem |
+| Opacidade | `background_image_opacity` | 0 a 100 (padrao 10) |
+
+A aba *Fundo* das preferencias oferece *Escolher...*, *Imagem do projeto* e
+*Remover*, com previa ao vivo: cada movimento do controle de opacidade repinta o
+editor atraves do mesmo caminho de `MainWindow._preview_settings`.
+
+O desenho acontece em `CodeEditor.paintEvent`, antes de `super()`. O
+`QPlainTextEdit` preenche o fundo do viewport antes de chamar este metodo, mas nao
+o repoe aqui, ja que o documento desenha apenas o texto; por isso a imagem
+sobrevive. O `QPixmap` e desenhado sobre um preenchimento com a cor `Base` do tema,
+centralizado e com `setOpacity` conforme a preferencia.
+
+O ajuste e o equivalente a `background-size: cover` de CSS:
+`KeepAspectRatioByExpanding` escala a imagem ate ela cobrir os dois lados do
+viewport e o excedente e cortado, em vez de deformado. Como a escala depende do
+tamanho da area visivel, o pixmap resultante e memorizado por
+`(tamanho do viewport, cacheKey do original)`, para nao reescalar a foto a cada
+pintura. Um caminho vazio ou ilegivel deixa o editor sem fundo e devolve `False`, e
+`MainWindow._apply_background` reclama do arquivo uma unica vez, para que um caminho
+quebrado nao repita a mensagem a cada ajuste do controle.
+
+O preenchimento da faixa dos numeros de linha nao e afetado: `LineNumberArea`
+continua sendo pintada a parte com a cor `Window`, o que mantem a coluna legivel
+mesmo com a imagem no maximo de opacidade.

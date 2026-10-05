@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 
 from .config import LANGUAGE_NAME, NEW_FILE_TEMPLATE
 from .editor.code_editor import CodeEditor
+from .editor.highlighter import CATEGORIES, PREFERENCE_FIELDS
 from .panels.console_view import ConsoleView
 from .panels.data_table import DataTable
 from .panels.settings_dialog import SettingsDialog
@@ -63,6 +64,7 @@ class MainWindow(QMainWindow):
         self._settings_path = settings_path
         self._current_path: str | None = None
         self._modified = False
+        self._background_error = ""
         self.settings = load_settings(settings_path)
 
         self.setWindowTitle(f"{LANGUAGE_NAME} - IDE")
@@ -323,6 +325,7 @@ class MainWindow(QMainWindow):
 
     def _show_result(self, result: AnalysisResult) -> None:
         self.editor.set_error_marks(list(result.errors))
+        self.editor.set_tokens(result.tokens)
 
         self.errors_table.set_rows(
             [(e.line, e.column, e.lexeme, e.message) for e in result.errors]
@@ -376,11 +379,30 @@ class MainWindow(QMainWindow):
 
         self.editor.set_current_line_color(_optional_color(settings.current_line_color))
         self.editor.set_error_color(_optional_color(settings.error_color))
+        self.editor.set_highlight_colors(
+            {
+                categoria: _optional_color(getattr(settings, PREFERENCE_FIELDS[categoria]))
+                for categoria in CATEGORIES
+            }
+        )
+        self._apply_background(settings)
         self.editor.apply_font(settings.font_family, settings.font_size)
         self.output_console.apply_font(settings.font_family, settings.font_size)
         self.output_console.apply_colors(
             settings.console_background, settings.console_foreground
         )
+
+    def _apply_background(self, settings: Settings) -> None:
+        caminho = settings.background_image_path
+        carregada = self.editor.set_background_image(
+            caminho, settings.background_image_opacity
+        )
+        problema = "" if carregada or not caminho else caminho
+        if problema == self._background_error:
+            return
+        self._background_error = problema
+        if problema:
+            self._log(f"Imagem de fundo nao encontrada: {problema}")
 
     def open_preferences(self) -> None:
         dialog = SettingsDialog(self.settings, self._preview_settings, self)

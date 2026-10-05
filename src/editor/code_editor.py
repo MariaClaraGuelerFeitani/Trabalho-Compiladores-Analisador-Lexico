@@ -1,11 +1,12 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QEvent, QRect, QSize, Qt
+from PySide6.QtCore import QEvent, QPoint, QRect, QSize, Qt
 from PySide6.QtGui import (
     QColor,
     QPainter,
     QPalette,
+    QPixmap,
     QTextCharFormat,
     QTextCursor,
     QTextFormat,
@@ -13,7 +14,8 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import QPlainTextEdit, QTextEdit, QWidget
 
 from ..config import monospace_font
-from ..services.lexer_service import LexicalError
+from ..services.lexer_service import LexicalError, Token
+from .highlighter import TokenHighlighter, resolve_colors
 
 LINE_NUMBER_MARGIN = 4
 MIN_LINE_NUMBER_DIGITS = 2
@@ -24,6 +26,10 @@ LINE_NUMBER_CURRENT = 0.20
 
 ERROR_ON_DARK = "#ff5252"
 ERROR_ON_LIGHT = "#c62828"
+
+DEFAULT_BACKGROUND_OPACITY = 10
+MIN_BACKGROUND_OPACITY = 0
+MAX_BACKGROUND_OPACITY = 100
 
 
 def _base(palette: QPalette) -> QColor:
@@ -80,6 +86,12 @@ class CodeEditor(QPlainTextEdit):
         self._error_list: list[LexicalError] = []
         self._current_line_override: QColor | None = None
         self._error_override: QColor | None = None
+        self._highlight_overrides: dict[str, QColor] = {}
+        self._highlighter = TokenHighlighter(self.document())
+        self._background: QPixmap | None = None
+        self._background_opacity = DEFAULT_BACKGROUND_OPACITY / 100
+        self._cover: QPixmap | None = None
+        self._cover_key: tuple[QSize, int] | None = None
 
         self.setFont(monospace_font())
         self.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
@@ -89,6 +101,7 @@ class CodeEditor(QPlainTextEdit):
         self.updateRequest.connect(self._update_line_number_area)
         self.cursorPositionChanged.connect(self._refresh_selections)
         self._update_line_number_width()
+        self._apply_highlight_colors()
 
 
     def line_number_area_width(self) -> int:
@@ -122,7 +135,61 @@ class CodeEditor(QPlainTextEdit):
                 for selection in (self._build_error_selection(e) for e in self._error_list)
                 if selection is not None
             ]
+            self._apply_highlight_colors()
             self._refresh_selections()
+            self._repaint_background()
+
+    def paintEvent(self, event) -> None:  # noqa: N802
+        if self._background is not None:
+            covering = self._cover_pixmap()
+            painter = QPainter(self.viewport())
+            try:
+                painter.fillRect(
+                    self.viewport().rect(), self.palette().brush(QPalette.ColorRole.Base)
+                )
+                painter.setOpacity(self._background_opacity)
+                if covering is not None:
+                    painter.drawPixmap(
+                        QPoint(
+                            -(covering.width() - self.viewport().width()) // 2,
+                            -(covering.height() - self.viewport().height()) // 2,
+                        ),
+                        covering,
+                    )
+            finally:
+                painter.end()
+        super().paintEvent(event)
+
+    def _cover_pixmap(self) -> QPixmap | None:
+        if self._background is None:
+            return None
+        area = self.viewport().size()
+        chave = (area, self._background.cacheKey())
+        if chave != self._cover_key:
+            self._cover = self._background.scaled(
+                area,
+                Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            self._cover_key = chave
+        return self._cover
+
+    def _repaint_background(self) -> None:
+        self.viewport().update()
+
+    def set_background_image(self, path: str, opacity: int) -> bool:
+        self._background_opacity = max(
+            MIN_BACKGROUND_OPACITY, min(MAX_BACKGROUND_OPACITY, opacity)
+        ) / 100
+        pixmap = QPixmap(path) if path else QPixmap()
+        self._background = None if pixmap.isNull() else pixmap
+        self._cover = None
+        self._cover_key = None
+        self._repaint_background()
+        return self._background is not None
+
+    def has_background_image(self) -> bool:
+        return self._background is not None
 
 
     def paint_line_numbers(self, event) -> None:
@@ -182,6 +249,25 @@ class CodeEditor(QPlainTextEdit):
     def set_error_color(self, color: QColor | None) -> None:
         self._error_override = None if color is None else QColor(color)
         self.set_error_marks(self._error_list)
+
+    def set_highlight_colors(self, colors: dict[str, QColor | None]) -> None:
+        self._highlight_overrides = {
+            categoria: QColor(cor)
+            for categoria, cor in colors.items()
+            if cor is not None
+        }
+        self._apply_highlight_colors()
+
+    def _apply_highlight_colors(self) -> None:
+        self._highlighter.set_colors(
+            resolve_colors(self._highlight_overrides, self.palette())
+        )
+
+    def set_tokens(self, tokens: tuple[Token, ...]) -> None:
+        self._highlighter.set_tokens(tokens)
+
+    def highlight_color(self, category: str) -> QColor:
+        return self._highlighter.colors().get(category, QColor())
 
     def apply_font(self, family: str, size: int) -> None:
         self.setFont(monospace_font(family, size))

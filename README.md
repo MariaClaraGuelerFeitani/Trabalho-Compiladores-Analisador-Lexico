@@ -36,12 +36,14 @@ python tests\smoke_ui.py
 | `tests/test_dfa.py` | 139 | invariantes do automato: determinismo, alcancabilidade, aceitacao e maximo casamento |
 | `tests/test_grammar.py` | 26 | transcricao do Anexo I, extensoes da parte 2 e consistencia terminal/token |
 | `tests/test_parser.py` | 144 | programas validos e invalidos, `for`, `record`, enumeracao, acesso a campo, chamada de funcao em expressao, `;` final facultativo, aviso de instrucao sem efeito e recuperacao |
+| `tests/test_highlighter.py` | 38 | realce por classe de token, cores do tema, preferencias, comentarios e integracao com a janela |
+| `tests/test_background.py` | 23 | imagem de fundo do editor: caminho, opacidade, pintura, ajuste que cobre a area e persistencia |
 
-Total: 444 testes.
+Total: 505 testes.
 
 O teste de fumaca abre a interface em modo `offscreen`, digita um programa e
 valida aba por aba (tokens, erros, avisos, simbolos, classes de tokens, DFA e
-gramatica), alem das preferencias (tema, fonte, cores) e da persistencia em disco.
+gramatica), alem das preferencias (tema, fonte, cores, realce) e da persistencia em disco.
 
 ## Atalhos
 
@@ -53,17 +55,22 @@ gramatica), alem das preferencias (tema, fonte, cores) e da persistencia em disc
 | `Ctrl+Shift+S` | Salvar como |
 | `Ctrl+B` | Compilar (análise léxica e sintática imediatas) |
 | `Ctrl+L` | Limpar a aba Saída |
-| `Ctrl+,` | Preferências (tema, fonte, cores) |
+| `Ctrl+,` | Preferências (tema, fonte, cores, realce e fundo) |
 | `Ctrl++` / `Ctrl+-` / `Ctrl+0` | Aumentar / diminuir / restaurar a fonte |
 
 ## Funcionalidades da interface
 
 - Editor com numero da linha corrente e sublinhado vermelho para erros lexico-sintaticos,
   com analise ao vivo durante a digitacao (debounce de 250 ms)
+- Realce sintatico por classe de token: palavra reservada (em negrito), tipo primario,
+  numero, literal e comentario (em italico); identificadores e simbolos ficam com a
+  cor normal do tema
+- Imagem de fundo no editor (`img/background.jpg` por padrao), ajustada para cobrir
+  a area de codigo mantendo a proporcao e com opacidade ajustavel
 - Abas: Tokens, Erros, Avisos, Tabela de Simbolos, Classes de Tokens,
   DFA - Estados, DFA - Transicoes e Gramatica
 - Preferencias em JSON (tema claro/escuro/sistema, fonte, cores do editor e do
-  terminal) com visualizacao ao vivo
+  terminal, cores do realce, imagem de fundo) com visualizacao ao vivo
 - Numero maximo de identificadores (15 caracteres), comentarios em `//`, `{ }` e `(* *)`,
   palavras reservadas em minusculas - tratados pelo analisador em `src/lexer/`
 
@@ -93,6 +100,7 @@ src/
   main_window.py         Janela principal, menus, atalhos, paineis de saida
   editor/
     code_editor.py       Editor com numero de linha e sublinhado de erro
+    highlighter.py       Realce sintatico por classe de token
   panels/
     data_table.py        Tabela somente leitura
     console_view.py      Aba Saida
@@ -109,6 +117,10 @@ tests/
   test_dfa.py            Testes do automato
   test_grammar.py        Testes da gramatica
   test_parser.py         Testes do analisador sintatico
+  test_highlighter.py    Testes do realce sintatico
+  test_background.py     Testes da imagem de fundo do editor
+img/
+  background.jpg         Imagem de fundo do editor (padrão)
 relatorio/
   relatorio.md           Relatorio do trabalho
 ```
