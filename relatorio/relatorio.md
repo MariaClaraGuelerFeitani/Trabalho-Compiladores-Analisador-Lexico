@@ -7,7 +7,7 @@ para um dialeto da linguagem Pascal.
 | --- | --- |
 | Autores | Blendhon Pontini Delfino, Maria Clara Gueler Feitani |
 | Implementacao | `src/lexer/` (lexico) e `src/parser/` (sintatico) |
-| Testes | 505: `test_lexer.py` (135), `test_dfa.py` (139), `test_grammar.py` (26), `test_parser.py` (144), `test_highlighter.py` (38), `test_background.py` (23) |
+| Testes | 511: `test_lexer.py` (135), `test_dfa.py` (139), `test_grammar.py` (26), `test_parser.py` (144), `test_highlighter.py` (38), `test_background.py` (23), `test_icon.py` (6) |
 
 ---
 
@@ -476,7 +476,7 @@ Registradas para conhecimento:
 
 ```
 python -m pytest tests\ -q
-505 passed
+511 passed
 python tests\smoke_ui.py
 Todos os testes de fumaça passaram.
 ```
@@ -489,6 +489,7 @@ Todos os testes de fumaça passaram.
 | `tests/test_parser.py` | 144 | programas validos e invalidos, `for` com `to` e `downto`, corpo simples e em bloco, `record`, enumeracao com e sem intervalo, acesso a campo, parametros com e sem parenteses, chamada de funcao em expressao, `;` final facultativo, aviso de instrucao sem efeito, ausencia de falso positivo em chamada de procedimento, recuperacao de erro e integracao com `AnaliseService` |
 | `tests/test_highlighter.py` | 38 | realce por classe de token, negrito em palavra reservada e italico em comentario, cores padrao dos dois temas, preferencia sobrepondo o tema, as tres formas de comentario com aninhamento e multiplas linhas, token que passa do fim da linha, erro lexico sem derrubar o realce, repintura sem `textChanged` espurio e integracao com a janela principal |
 | `tests/test_background.py` | 23 | presenca da imagem que acompanha o projeto, caminho valido, vazio e inexistente, faixa de opacidade, pintura efetiva do fundo lida pixel a pixel, ajuste que cobre a area em quatro combinacoes de proporcao sem deixar canto vazio, proporcao preservada, ampliacao de imagem menor que a area, reuso e invalidacao da escala, persistencia das preferencias e faixa propria do campo de opacidade |
+| `tests/test_icon.py` | 6 | presenca da imagem e do `.ico`, leitura do diretorio do `.ico` conferindo 16, 32 e 256 px, transparencia do PNG, carga pelo `QIcon` e o contrato de `app_icon_file` com e sem o arquivo |
 | `tests/smoke_ui.py` | 60 verificacoes | interface completa com o analisador real ligado em `src/app.py`, incluindo a aba *Gramatica* |
 
 ### 9.1 Realce sintatico
@@ -562,3 +563,38 @@ quebrado nao repita a mensagem a cada ajuste do controle.
 O preenchimento da faixa dos numeros de linha nao e afetado: `LineNumberArea`
 continua sendo pintada a parte com a cor `Window`, o que mantem a coluna legivel
 mesmo com a imagem no maximo de opacidade.
+
+### 9.3 Executavel e icone
+
+O projeto tambem e distribuido como `dist\Guaxinim.exe`, um arquivo unico de
+cerca de 43 MB, sem janela de console. O `Guaxinim.spec` descreve o empacotamento
+com PyInstaller: `console=False` (a IDE e grafica), `onefile` e a exclusao de
+`QtWebEngine`, `QtMultimedia`, `Qt3D`, `QtQuick` e `QtQml`, que o projeto nao usa e
+que sozinhosrespondem por boa parte do tamanho.
+
+O icone vem de `img/racoon.png`, uma imagem de 512x512 com canal alfa. O Windows
+nao aceita PNG direto no recurso do executavel, entao `tools/make_icon.py` gera
+`img/racoon.ico`: recorta a moldura transparente, monta um quadrado de 256x256
+centralizando o desenho e grava os sete tamanhos (16, 24, 32, 48, 64, 128 e 256).
+O quadrado e obrigatorio porque o diretorio do formato ICO guarda cada lado em um
+byte, e um valor `0` ali significa 256; um recorte nao quadrado produziria entradas
+como 32x24, que o Windows sabe ler mas que nao correspondem ao que se espera de um
+icone.
+
+O mesmo PNG e usado em tempo de execucao, por `src/app.py`: `app_icon_file()`
+devolve o caminho se o arquivo existir, e o `QIcon` vai para o `QApplication`, o
+que cobre a janela, a barra de tarefas e o `Alt+Tab`. No Windows ainda e preciso
+chamar `SetCurrentProcessExplicitAppUserModelID`, senao o Explorador agrupa a
+janela sob o icone do `python.exe` em vez do icone do proprio programa; a chamada
+fica isolada em `_claim_taskbar_identity` e so acontece nessa plataforma.
+
+Um detalhe do modo *onefile* merece registro: dentro do executavel os modulos ficam
+dentro do arquivo e `src/config.py` passa a ter `__file__` apontando para
+`sys._MEIPASS/src/config.py`. Como o codigo ja derivava a raiz do projeto de
+`parent.parent` de `__file__`, a raiz continua correta e `img/` e encontrada,
+desde que as imagens sejam empacotadas com `--add-data`. Isso foi verificado com
+uma construcao de teste que imprimiu a raiz e a presenca dos dois arquivos; had
+sido apenas assumido, e uma imagem quebrada em ambiente congelado so apareceria
+para quem usa o `.exe`.
+
+As imagens vao no executavel apenas as usadas: `background.jpg` e `racoon.png`.

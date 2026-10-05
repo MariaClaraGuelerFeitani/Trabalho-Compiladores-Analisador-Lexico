@@ -23,6 +23,23 @@ python -m pip install -r requirements.txt
 python main.py
 ```
 
+## Executavel
+
+O IDE tambem vira um `.exe` unico, com o icone da `img/racoon.png`.
+
+```
+python -m pip install pyinstaller pillow
+.\build.ps1
+```
+
+O script refaz `img/racoon.ico` a partir de `img/racoon.png` (recorta o
+transparente, monta um quadrado e gera os sete tamanhos que o Windows usa) e
+depois chama o PyInstaller com o `Guaxinim.spec`. O resultado fica em
+`dist\Guaxinim.exe`, cerca de 43 MB, sem janela de console.
+
+Feche o `Guaxinim.exe` antes de recompilar: o PyInstaller nao consegue sobrescrever
+um arquivo em uso, e o `build.ps1` avisa antes de tentar.
+
 ## Testes
 
 ```
@@ -38,8 +55,9 @@ python tests\smoke_ui.py
 | `tests/test_parser.py` | 144 | programas validos e invalidos, `for`, `record`, enumeracao, acesso a campo, chamada de funcao em expressao, `;` final facultativo, aviso de instrucao sem efeito e recuperacao |
 | `tests/test_highlighter.py` | 38 | realce por classe de token, cores do tema, preferencias, comentarios e integracao com a janela |
 | `tests/test_background.py` | 23 | imagem de fundo do editor: caminho, opacidade, pintura, ajuste que cobre a area e persistencia |
+| `tests/test_icon.py` | 6 | icone do executavel: arquivos presentes, tamanhos do `.ico`, transparencia e carga no Qt |
 
-Total: 505 testes.
+Total: 511 testes.
 
 O teste de fumaca abre a interface em modo `offscreen`, digita um programa e
 valida aba por aba (tokens, erros, avisos, simbolos, classes de tokens, DFA e
@@ -67,6 +85,8 @@ gramatica), alem das preferencias (tema, fonte, cores, realce) e da persistencia
   cor normal do tema
 - Imagem de fundo no editor (`img/background.jpg` por padrao), ajustada para cobrir
   a area de codigo mantendo a proporcao e com opacidade ajustavel
+- Icone proprio (`img/racoon.png`) na janela, na barra de tarefas e no executavel;
+  no Windows o `AppUserModelID` evita que o Explorador mostre o icone do Python
 - Abas: Tokens, Erros, Avisos, Tabela de Simbolos, Classes de Tokens,
   DFA - Estados, DFA - Transicoes e Gramatica
 - Preferencias em JSON (tema claro/escuro/sistema, fonte, cores do editor e do

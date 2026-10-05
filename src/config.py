@@ -34,6 +34,11 @@ NEW_FILE_TEMPLATE = (
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 IMAGE_DIR = PROJECT_ROOT / "img"
 BUNDLED_BACKGROUND_IMAGE = IMAGE_DIR / "background.jpg"
+APP_ICON_FILE = IMAGE_DIR / "racoon.png"
+
+
+def app_icon_file() -> str:
+    return str(APP_ICON_FILE) if APP_ICON_FILE.is_file() else ""
 
 
 def default_background_image() -> str:

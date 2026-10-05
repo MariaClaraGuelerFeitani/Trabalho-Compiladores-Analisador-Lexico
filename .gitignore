@@ -11,3 +11,5 @@ venv/
 *.user
 *.pdb
 .DS_Store
+build/
+dist/

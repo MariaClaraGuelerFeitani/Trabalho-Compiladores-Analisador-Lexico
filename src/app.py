@@ -4,9 +4,10 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
-from .config import LANGUAGE_NAME
+from .config import LANGUAGE_NAME, app_icon_file
 from .main_window import MainWindow
 from .parser.service import AnaliseService
 from .services.lexer_service import LexerService
@@ -25,11 +26,30 @@ def create_window(
     return MainWindow(lexer if lexer is not None else build_lexer(), settings_path)
 
 
+def _claim_taskbar_identity(app: QApplication) -> None:
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            f"TrabalhoDeCompiladores.{LANGUAGE_NAME}.IDE"
+        )
+    except (AttributeError, OSError):
+        pass
+
+
 def run(argv: list[str] | None = None) -> int:
     app = QApplication(argv if argv is not None else sys.argv)
     app.setApplicationName(LANGUAGE_NAME)
     app.setApplicationDisplayName(f"{LANGUAGE_NAME} - IDE")
     app.setOrganizationName("Trabalho de Compiladores")
+
+    _claim_taskbar_identity(app)
+
+    icone = app_icon_file()
+    if icone:
+        app.setWindowIcon(QIcon(icone))
 
     remember_system_appearance(app)
 
