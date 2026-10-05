@@ -82,6 +82,26 @@ O teste de fumaca abre a interface em modo `offscreen`, digita um programa e
 valida aba por aba (tokens, erros, avisos, simbolos, classes de tokens, DFA e
 gramatica), alem das preferencias (tema, fonte, cores, realce) e da persistencia em disco.
 
+## Relatorio
+
+| Arquivo | Conteudo |
+| --- | --- |
+| `relatorio/relatorio.md` | O relatorio do trabalho. A secao 10 tem o diagrama de modulos e a secao 11 a tabela de tokens |
+| `relatorio/checklist.md` | Checklist e roteiro de apresentacao, com as respostas preparadas para as perguntas provaveis |
+| `relatorio/exemplo.pas` | Programa de demonstracao: 250 tokens, 23 simbolos, sem erro |
+| `relatorio/diagrama_modulos.png` | O diagrama da secao 10 ja renderizado, para leitores sem Mermaid |
+
+A tabela de tokens da secao 11 e gerada a partir do codigo, e nao escrita a mao:
+
+```
+python tools/gerar_tabela_tokens.py            # imprime a tabela
+python tools/gerar_tabela_tokens.py --write    # reescreve a secao 11 do relatorio
+```
+
+O script le `src/lexer/tokens.py` e o metodo `Lexer._atributos`, que e o mesmo
+que preenche a coluna de atributos da aba *Tokens* da IDE. Por isso a tabela do
+relatorio nao consegue divergir do que o programa faz.
+
 ## Atalhos
 
 | Atalho | Ação |
@@ -164,8 +184,11 @@ img/
   racoon.ico             Ícone do executável, gerado por tools/make_icon.py
 relatorio/
   relatorio.md           Relatorio do trabalho
+  checklist.md           Checklist e roteiro de apresentacao em sala
+  exemplo.pas            Programa de demonstracao (250 tokens, sem erro)
 tools/
   make_icon.py           Gera img/racoon.ico a partir de img/racoon.png
+  gerar_tabela_tokens.py Gera a tabela de tokens do relatorio a partir do codigo
 ```
 
 ## Mapa dos requisitos
@@ -184,7 +207,7 @@ tools/
 | 1i Tabela de simbolos | `Lexer._montar_tabela_de_simbolos` e `SymbolTable` em `src/lexer/models.py` |
 | 1j Recuperacao de erros | `src/lexer/error_recovery.py`, `Lexer._recuperar` e `Parser._sincronizar` |
 | 1k DFA deterministico | `src/lexer/dfa.py` (verificado em `tests/test_dfa.py`) |
-| 1l Relatorio e tabela de tokens | `relatorio/relatorio.md`, aba *Classes de tokens* e aba *Gramatica* |
+| 1l Relatorio e tabela de tokens | `relatorio/relatorio.md` (secao 10: diagrama de modulos; secao 11: tabela de tokens), `relatorio/checklist.md`, `relatorio/exemplo.pas` |
 | 2 Estrutura de controle `for` | `Parser._instrucao_para` e `src/parser/grammar.py` |
 | 2 Warning de instrucao sem efeito | `Parser._instrucao_identificador` |
 | 2 Ponto extra: registro e enumeracao | `Parser._corpo_registro`, `Parser._lista_enumeracao`, `Lexer._declarar_registro` |

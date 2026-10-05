@@ -9,6 +9,10 @@ para um dialeto da linguagem Pascal.
 | Implementacao | `src/lexer/` (lexico) e `src/parser/` (sintatico) |
 | Testes | 512: `test_lexer.py` (135), `test_dfa.py` (139), `test_grammar.py` (26), `test_parser.py` (144), `test_highlighter.py` (38), `test_background.py` (23), `test_icon.py` (7) |
 
+O roteiro de apresentacao, com o passo a passo requisito por requisito e as
+respostas para as perguntas provaveis, esta em `relatorio/checklist.md`. O programa
+de demonstracao esta em `relatorio/exemplo.pas`.
+
 ---
 
 ## 1. Objetivo
@@ -294,13 +298,22 @@ As mensagens acima sao reproduzidas exatamente como o programa as escreve,
 com acentuacao completa. O texto corrido deste relatorio, por sua vez, omite
 acentos para nao depender da codificacao do editor ou do terminal.
 
-A recuperacao tem duas strategies:
+A recuperacao tem tres estrategias:
 
 - **Caractere isolado invalido**: registra o erro e avanca um caractere, sem
   interromper o restante do arquivo.
-- **Construcao aberta** (literal, comentario): registra o erro e sincroniza ate
-  o proximo `;`, `begin`, `end`, `var`, `const`, `procedure`, `function` ou
-  quebra de linha, para retomar a analise dali.
+- **Construcao aberta** (literal nao encerrado): registra o erro e sincroniza
+  ate o proximo `;` ou quebra de linha, para retomar a analise dali. A
+  sincronizacao para *no* caractere de sincronizacao, sem consumi-lo, de modo que
+  a quebra de linha continue alimentando a contagem de linha normalmente.
+- **Pareamento de delimitadores** (`(` com `)` e `[` com `]`): uma pilha mantida
+  durante toda a passagem localiza fecha faltando e fecha nao aberta.
+
+Os pontos de sincronizacao do nivel de token (`begin`, `end`, `var`, `const`,
+`procedure`, `function`, `;`) existem em `error_recovery.PONTOS_DE_SINCRONIZACAO`,
+mas sao usados pelo analisador sintatico, que trabalha sobre tokens e nao sobre
+caracteres. O lexer sincroniza apenas em `;` e `\n`
+(`error_recovery.CARACTERES_DE_SINCRONIZACAO`).
 
 Como o analisador nunca aborta, um arquivo com varios erros produce varios
 erros em uma unica passagem.
@@ -469,6 +482,24 @@ Registradas para conhecimento:
    `inst -> ID ( parametros2 ) ;`, o que torna `x := f(1)` indeDerivavel. Como
    `parametros2` ja e a lista de argumentos de chamada, foi acrescentada a
    producao `fator -> variavel ( parametros2 )`.
+10. **`;` depois de bloco aninhado continua obrigatorio.** A producao do Anexo I
+    e `bloco -> BEGIN instrucoes END ;`, e ela foi seguida a risca: um bloco
+    usado como instrucao precisa do `;` depois do `end`. O item 8 acima tornou o
+    `;` final facultativo dentro do bloco, mas nao alterou o `;` que vem
+    *depois* do `end` de um bloco aninhado, porque ele pertence a producao
+    `bloco` e nao a `instrucoes`. O Pascal real dispensa esse ponto e virgula:
+
+    ```
+    while i < 10 do
+    begin
+      i := i + 1
+    end          <-- exigido por esta implementacao
+    ```
+
+    A forma aceita por esta versao e `end;`. A escolha e deliberada: seguir o
+    Anexo I e mais previsivel do que aceitar duas regras diferentes para `;` na
+    mesma posicao, mas e uma divergencia conhecida do Pascal usual, e nao um
+    esquecimento.
 
 ---
 
@@ -476,7 +507,7 @@ Registradas para conhecimento:
 
 ```
 python -m pytest tests\ -q
-511 passed
+512 passed
 python tests\smoke_ui.py
 Todos os testes de fumaça passaram.
 ```
@@ -489,7 +520,7 @@ Todos os testes de fumaça passaram.
 | `tests/test_parser.py` | 144 | programas validos e invalidos, `for` com `to` e `downto`, corpo simples e em bloco, `record`, enumeracao com e sem intervalo, acesso a campo, parametros com e sem parenteses, chamada de funcao em expressao, `;` final facultativo, aviso de instrucao sem efeito, ausencia de falso positivo em chamada de procedimento, recuperacao de erro e integracao com `AnaliseService` |
 | `tests/test_highlighter.py` | 38 | realce por classe de token, negrito em palavra reservada e italico em comentario, cores padrao dos dois temas, preferencia sobrepondo o tema, as tres formas de comentario com aninhamento e multiplas linhas, token que passa do fim da linha, erro lexico sem derrubar o realce, repintura sem `textChanged` espurio e integracao com a janela principal |
 | `tests/test_background.py` | 23 | presenca da imagem que acompanha o projeto, caminho valido, vazio e inexistente, faixa de opacidade, pintura efetiva do fundo lida pixel a pixel, ajuste que cobre a area em quatro combinacoes de proporcao sem deixar canto vazio, proporcao preservada, ampliacao de imagem menor que a area, reuso e invalidacao da escala, persistencia das preferencias e faixa propria do campo de opacidade |
-| `tests/test_icon.py` | 7 | presenca da imagem e do `.ico`, leitura do diretorio do `.ico` conferindo 16, 32 e 256 px, transparencia do PNG, arte inteira e比例cional no quadro de 256 px, carga pelo `QIcon` e o contrato de `app_icon_file` com e sem o arquivo |
+| `tests/test_icon.py` | 7 | presenca da imagem e do `.ico`, leitura do diretorio do `.ico` conferindo 16, 32 e 256 px, transparencia do PNG, arte inteira e proporcional no quadro de 256 px, carga pelo `QIcon` e o contrato de `app_icon_file` com e sem o arquivo |
 | `tests/smoke_ui.py` | 60 verificacoes | interface completa com o analisador real ligado em `src/app.py`, incluindo a aba *Gramatica* |
 
 ### 9.1 Realce sintatico
@@ -609,3 +640,206 @@ sido apenas assumido, e uma imagem quebrada em ambiente congelado so apareceria
 para quem usa o `.exe`.
 
 As imagens vao no executavel apenas as usadas: `background.jpg` e `racoon.png`.
+
+---
+
+## 10. Diagrama de modulos
+
+O programa esta em quatro camadas: entrada (`main.py` e `src/app.py`), servicos de
+orquestracao, os dois analisadores com o contrato que os liga, e a interface. O
+fluxo de uma tecla digitada e de um resultado de tela e sempre o mesmo:
+`textChanged` dispara o debounce, o controlador chama o servico de analise, o
+servico encadeia lexico e sintatico, e o `AnalysisResult` volta para a janela,
+que atualiza o editor, as oito tabelas e o console.
+
+O bloco seguinte e Mermaid, que o GitHub, o VS Code e o Typora renderizam. Para
+quem abre em um leitor que nao understands Mermaid, a mesma figura esta renderizada
+em `relatorio/diagrama_modulos.png`.
+
+```mermaid
+flowchart TD
+    MAIN["main.py<br/>ponto de entrada"]
+    APP["src/app.py<br/>run - create_window - build_lexer"]
+    MW["MainWindow<br/>src/main_window.py<br/>janela, menus, docks"]
+
+    subgraph SERVICOS["Servicos de orquestracao"]
+        CTRL["AnalysisController<br/>src/services/analysis_controller.py<br/>QTimer de 250 ms"]
+        FILE["FileService<br/>src/services/file_service.py"]
+        ANALISE["AnaliseService<br/>src/parser/service.py<br/>encadeia as duas fases"]
+    end
+
+    subgraph LEXICO["Analisador lexico"]
+        LEXER["Lexer<br/>src/lexer/lexer.py<br/>maximo casamento"]
+        DFA["dfa.py<br/>136 estados - 251 transicoes<br/>delta - simbolo_lido"]
+        TOKENS["tokens.py<br/>PALAVRAS_RESERVADAS - SIMBOLOS<br/>TOKEN_CLASSES - regex"]
+        RECOV["error_recovery.py<br/>mensagens, sincronizacao<br/>pareamento"]
+        SYMBOLS["SymbolTable<br/>src/lexer/models.py"]
+    end
+
+    subgraph SINTATICO["Analisador sintatico"]
+        PARSER["Parser<br/>src/parser/parser.py<br/>descida recursiva"]
+        GRAMMAR["grammar.py<br/>ANEXO_I + EXTENSOES"]
+    end
+
+    CONTRATO["lexer_service.py<br/>Token - LexicalError - Warning - Symbol<br/>DfaState - DfaTransition - AnalysisResult<br/>Protocol LexerService"]
+
+    subgraph PAINEIS["Interface"]
+        EDITOR["CodeEditor<br/>src/editor/code_editor.py<br/>sublinhado de erro"]
+        HIGHLIGHT["TokenHighlighter<br/>src/editor/highlighter.py"]
+        TABELAS["DataTable vezes 8<br/>src/panels/data_table.py"]
+        CONSOLE["ConsoleView<br/>src/panels/console_view.py"]
+        PREFS["SettingsDialog + theme<br/>src/panels/settings_dialog.py"]
+    end
+
+    CONFIG["config.py<br/>LANGUAGE_NAME - MAX_IDENTIFIER_LENGTH<br/>ANALYSIS_DEBOUNCE_MS"]
+
+    MAIN --> APP
+    APP -->|"create_window"| MW
+    APP -->|"build_lexer"| ANALISE
+    MW --> CTRL
+    MW -->|"set_lexer"| ANALISE
+    MW --> FILE
+    CTRL -->|"request e analyze_now"| ANALISE
+    ANALISE -->|"analyze"| LEXER
+    ANALISE -->|"Parser"| PARSER
+    LEXER --> DFA
+    LEXER --> TOKENS
+    LEXER --> RECOV
+    LEXER --> SYMBOLS
+    PARSER --> GRAMMAR
+    CTRL -->|"contrato"| CONTRATO
+    LEXER -.->|"implementa o Protocol"| CONTRATO
+    ANALISE -.->|"implementa o Protocol"| CONTRATO
+    ANALISE -->|"AnalysisResult"| MW
+    MW -->|"set_error_marks"| EDITOR
+    MW -->|"set_tokens"| HIGHLIGHT
+    EDITOR --> HIGHLIGHT
+    MW --> TABELAS
+    MW --> CONSOLE
+    MW --> PREFS
+    CONFIG -.-> LEXER
+    CONFIG -.-> TOKENS
+    CONFIG -.-> CTRL
+    CONFIG -.-> MW
+
+    classDef contrato fill:#1f6feb22,stroke:#1f6feb
+    class CONTRATO contrato
+    classDef nucleo fill:#d2992222,stroke:#d29922
+    class LEXER,PARSER,ANALISE nucleo
+    classDef config fill:#8957e522,stroke:#8957e5
+    class CONFIG config
+```
+
+Tres decisoes do desenho merecem explicacao:
+
+- **`lexer_service.py` define os dados, nao o algoritmo.** `Token`, `LexicalError`,
+  `Symbol` e `AnalysisResult` sao dataclasses congeladas que vivem no modulo de
+  contrato. Nao foi uma escolha estetica: e o que permite ao `lexer` importar o
+  contrato sem ciclo de importacao, ja que o contrato tambem precisa conhecer os
+  tipos de `dfa.py`.
+- **`AnaliseService` implementa o mesmo `Protocol` do lexer.** A interface fala
+  com `LexerService`, que e so a assinatura de `analyze`. Trocar `AnaliseService`
+  por `Lexer` em `build_lexer` remove o parser da IDE sem alterar uma linha da
+  janela. O teste `tests/smoke_ui.py` usa um duble com o mesmo Protocol para
+  contar chamadas.
+- **`config.py` e lido por todos os modulos.** `MAX_IDENTIFIER_LENGTH` e
+  importado pelo `tokens.py` para montar a regex de `ID`, de modo que mudar o
+  limite em um lugar so muda a regex, a validacao e a tabela deste relatorio.
+
+---
+
+## 11. Tabela de tokens
+
+Gerada por `tools/gerar_tabela_tokens.py`, que le `src/lexer/tokens.py` e o
+metodo `Lexer._atributos`. Para regenerar apos mexer nos tokens:
+
+```
+python tools/gerar_tabela_tokens.py --write
+```
+
+<!-- tabela-tokens:inicio -->
+Um token por tipo reconhecido: 51 tipos, 52 entradas em `TokenClass`, porque `program` e `programa` sao o mesmo token `PROGRAM`.
+
+A coluna **Expressao regular** reproduz literalmente o que a aba *Classes de tokens* da IDE mostra. As palavras reservadas vem com o prefixo `(?i)`, que e o jeito de escrever *case-insensitive* em regex. Os simbolos aparecem escapados (`+` como `\+`) porque e o que `re.escape` devolve.
+
+Somente `ID`, `NUM` e `LITERAL` carregam atributo; palavra reservada e simbolo nao tem valor semantico. O par **Atributo** / **Valor** e o que o analisador sintatico usa para saber se `007` vale zero ou sete, e se `'d''art'` contem um ou dois apostrofos.
+
+### 11.1 Classes de variaveis
+
+| Token | Lexema | Expressao regular | Atributo | Valor |
+| --- | --- | --- | --- | --- |
+| `ID` | `contador` | `[A-Za-z][A-Za-z0-9_]{0,14}` | - | `contador` |
+| `NUM` | `007` | `[0-9]+(\.[0-9]+)?` | `inteiro` | `7` |
+| `NUM` | `3.14` | `[0-9]+(\.[0-9]+)?` | `real` | `3.14` |
+| `LITERAL` | `'d''art'` | `'(letra\|digito\|especial)*'` | `6 caracteres` | `d'art` |
+
+### 11.2 Palavras reservadas (28 tokens, 29 grafias)
+
+| Token | Lexema | Expressao regular | Atributo | Valor |
+| --- | --- | --- | --- | --- |
+| `PROGRAM` | `program`, `programa` | `(?i)program` ou `(?i)programa` | - | - |
+| `BEGIN` | `begin` | `(?i)begin` | - | - |
+| `END` | `end` | `(?i)end` | - | - |
+| `CONST` | `const` | `(?i)const` | - | - |
+| `VAR` | `var` | `(?i)var` | - | - |
+| `INTEGER` | `integer` | `(?i)integer` | - | - |
+| `REAL` | `real` | `(?i)real` | - | - |
+| `CHAR` | `char` | `(?i)char` | - | - |
+| `STRING` | `string` | `(?i)string` | - | - |
+| `PROCEDURE` | `procedure` | `(?i)procedure` | - | - |
+| `FUNCTION` | `function` | `(?i)function` | - | - |
+| `IF` | `if` | `(?i)if` | - | - |
+| `ELSE` | `else` | `(?i)else` | - | - |
+| `THEN` | `then` | `(?i)then` | - | - |
+| `WHILE` | `while` | `(?i)while` | - | - |
+| `DO` | `do` | `(?i)do` | - | - |
+| `REPEAT` | `repeat` | `(?i)repeat` | - | - |
+| `UNTIL` | `until` | `(?i)until` | - | - |
+| `BREAK` | `break` | `(?i)break` | - | - |
+| `CONTINUE` | `continue` | `(?i)continue` | - | - |
+| `OU` | `ou` | `(?i)ou` | - | - |
+| `E` | `e` | `(?i)e` | - | - |
+| `FOR` | `for` | `(?i)for` | - | - |
+| `TO` | `to` | `(?i)to` | - | - |
+| `DOWNTO` | `downto` | `(?i)downto` | - | - |
+| `TYPE` | `type` | `(?i)type` | - | - |
+| `RECORD` | `record` | `(?i)record` | - | - |
+| `ENUM` | `enum` | `(?i)enum` | - | - |
+
+### 11.3 Simbolos (20)
+
+| Token | Lexema | Expressao regular | Atributo | Valor |
+| --- | --- | --- | --- | --- |
+| `ATRIBUICAO` | `:=` | `:=` | - | - |
+| `MENOR_OU_IGUAL_QUE` | `<=` | `<=` | - | - |
+| `MAIOR_OU_IGUAL_QUE` | `>=` | `>=` | - | - |
+| `DIFERENTE_DE` | `<>` | `<>` | - | - |
+| `INTERVALO` | `..` | `\.\.` | - | - |
+| `PONTO_E_VIRGULA` | `;` | `;` | - | - |
+| `PONTO` | `.` | `\.` | - | - |
+| `VIRGULA` | `,` | `,` | - | - |
+| `DOIS_PONTOS` | `:` | `:` | - | - |
+| `IGUALDADE_COMPARACAO` | `=` | `=` | - | - |
+| `MENOR_QUE` | `<` | `<` | - | - |
+| `MAIOR_QUE` | `>` | `>` | - | - |
+| `ADICAO` | `+` | `\+` | - | - |
+| `SUBTRACAO` | `-` | `\-` | - | - |
+| `MULTIPLICACAO` | `*` | `\*` | - | - |
+| `DIVISAO` | `/` | `/` | - | - |
+| `ABRE_PARENTESES` | `(` | `\(` | - | - |
+| `FECHA_PARENTESES` | `)` | `\)` | - | - |
+| `ABRE_COLCHETES` | `[` | `\[` | - | - |
+| `FECHA_COLCHETES` | `]` | `\]` | - | - |
+
+### 11.4 Reconhecidos sem produzir token
+
+Estes construcoes sao consumidas e descartadas antes do automato, porque nao pertencem a nenhuma classe de lexema:
+
+| Constructo | Inicio | Fim | Observacao |
+| --- | --- | --- | --- |
+| `espaco`, `\t`, `\r`, `\n`, `\v`, `\f` | - | - | `Lexer._consumir_espaco` (`src/lexer/lexer.py`) |
+| `//` | `//` | fim da linha | `Lexer._consumir_comentario` |
+| `{ ... }` | `{` | `}` | aninhamento permitido |
+| `(* ... *)` | `(*` | `*)` | aninhamento permitido |
+
+<!-- tabela-tokens:fim -->
