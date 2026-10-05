@@ -24,8 +24,10 @@ COLOR_CONSOLE_FOREGROUND = "#d4d4d4"
 
 NEW_FILE_TEMPLATE = (
     "programa {nome};\n"
-    "\n"
+    "var x: integer;\n"
     "begin\n"
+    "x := 10; // um comentario\n"
+    "writeln('ola', x);\n"
     "end.\n"
 )
 

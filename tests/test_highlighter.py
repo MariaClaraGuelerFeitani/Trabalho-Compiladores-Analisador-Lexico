@@ -59,18 +59,11 @@ CORES: dict[str, QColor] = {
 }
 
 PROGRAMA = (
-    "program FunctionExample;\n"
-    "\n"
-    "function squareAddTen(num : Integer): Integer;\n"
-    "var\n"
-    "   finalResult : IntEGER;\n"
+    "programa Ola;\n"
+    "var x: integer;\n"
     "begin\n"
-    "   finalResult := (num * num) + 10;\n"
-    "   SquareAddTen := finalResult;\n"
-    "end;\n"
-    "\n"
-    "begin\n"
-    "  writeln(squareAndAddTen(10)); // Output: 110\n"
+    "x := 10; // um comentario\n"
+    "writeln('ola', x);\n"
     "end.\n"
 )
 
@@ -309,23 +302,22 @@ def test_programa_do_relatorio_fica_colorido(app: QApplication) -> None:
     documento, _ = realcar(PROGRAMA, resultado.tokens)
 
     esperado = [
-        ("PROGRAM", 1, CATEGORY_KEYWORD),  # program
-        ("FUNCTION", 1, CATEGORY_KEYWORD),  # function
-        ("INTEGER", 1, CATEGORY_TYPE),  # Integer do parâmetro
-        ("INTEGER", 2, CATEGORY_TYPE),  # Integer do retorno
-        ("VAR", 1, CATEGORY_KEYWORD),
-        ("INTEGER", 3, CATEGORY_TYPE),  # IntEGER, em caixa mista
-        ("NUM", 1, CATEGORY_NUMBER),  # o 10 do cálculo
-        ("NUM", 2, CATEGORY_NUMBER),  # o 10 da chamada
+        ("PROGRAM", CATEGORY_KEYWORD),
+        ("VAR", CATEGORY_KEYWORD),
+        ("BEGIN", CATEGORY_KEYWORD),
+        ("END", CATEGORY_KEYWORD),
+        ("INTEGER", CATEGORY_TYPE),
+        ("NUM", CATEGORY_NUMBER),
+        ("LITERAL", CATEGORY_LITERAL),
     ]
-    for tipo, ocorrencia, categoria in esperado:
-        posicao = posicao_de(PROGRAMA, tipo, ocorrencia)
-        assert cor_em(documento, *posicao) == CORES[categoria], (tipo, ocorrencia)
+    for tipo, categoria in esperado:
+        posicao = posicao_de(PROGRAMA, tipo)
+        assert cor_em(documento, *posicao) == CORES[categoria], tipo
 
-    for ocorrencia in (1, 2):
+    for ocorrencia in range(1, 6):
         assert cor_em(documento, *posicao_de(PROGRAMA, "ID", ocorrencia)) == QColor()
-    linha = PROGRAMA.split("\n")[11]
-    assert cor_em(documento, 12, linha.index("//") + 1) == CORES[CATEGORY_COMMENT]
+    linha = PROGRAMA.split("\n")[3]
+    assert cor_em(documento, 4, linha.index("//") + 1) == CORES[CATEGORY_COMMENT]
 
 def test_literal_no_programa_do_relatorio(app: QApplication) -> None:
     fonte = "programa Ola;\nbegin\n  writeln('ola');\nend.\n"

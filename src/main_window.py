@@ -139,7 +139,7 @@ class MainWindow(QMainWindow):
 
     def _build_actions(self) -> None:
         self.action_new = self._action(
-            "&Novo", self.new_file, QKeySequence.StandardKey.New, "Cria um programa vazio"
+            "&Novo", self.new_file, QKeySequence.StandardKey.New, "Cria um programa de exemplo"
         )
         self.action_open = self._action(
             "&Abrir...", self.open_file, QKeySequence.StandardKey.Open, "Abre um programa existente"
