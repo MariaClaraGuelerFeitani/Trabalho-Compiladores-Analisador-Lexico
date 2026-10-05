@@ -28,17 +28,36 @@ python main.py
 O IDE tambem vira um `.exe` unico, com o icone da `img/racoon.png`.
 
 ```
+python -m pip install -r requirements.txt
 python -m pip install pyinstaller pillow
 .\build.ps1
 ```
 
-O script refaz `img/racoon.ico` a partir de `img/racoon.png` (recorta o
-transparente, monta um quadrado e gera os sete tamanhos que o Windows usa) e
-depois chama o PyInstaller com o `Guaxinim.spec`. O resultado fica em
-`dist\Guaxinim.exe`, cerca de 43 MB, sem janela de console.
+Se o PowerShell recusar o script por politica de execucao:
+
+```
+powershell -ExecutionPolicy Bypass -File .\build.ps1
+```
+
+O `build.ps1` refaz `img/racoon.ico` a partir de `img/racoon.png` (recorta a moldura
+transparente, reduz a arte proporcionalmente para caber em 256x256 e a centraliza,
+depois grava os sete tamanhos que o Windows usa) e depois chama o PyInstaller com o
+`Guaxinim.spec`. O resultado fica em `dist\Guaxinim.exe`, cerca de 43 MB, sem janela
+de console.
+
+Argumentos:
+
+| Argumento | Efeito |
+| --- | --- |
+| `-PularIcone` | nao regenera o `.ico`, reutiliza o que ja esta em `img\` |
 
 Feche o `Guaxinim.exe` antes de recompilar: o PyInstaller nao consegue sobrescrever
 um arquivo em uso, e o `build.ps1` avisa antes de tentar.
+
+Se o `.exe` recompilado continuar com o icone antigo, e o cache de icones do Windows:
+abra o Explorador de Arquivos, va em **Exibir > Exibir > Opcoes de pasta**, desmarque
+**Sempre mostrar icones, nunca mostrar miniaturas**, aplique e volte a marcar; ou rode
+`ie4uinit.exe -show` e reinicie o Explorador.
 
 ## Testes
 
@@ -55,9 +74,9 @@ python tests\smoke_ui.py
 | `tests/test_parser.py` | 144 | programas validos e invalidos, `for`, `record`, enumeracao, acesso a campo, chamada de funcao em expressao, `;` final facultativo, aviso de instrucao sem efeito e recuperacao |
 | `tests/test_highlighter.py` | 38 | realce por classe de token, cores do tema, preferencias, comentarios e integracao com a janela |
 | `tests/test_background.py` | 23 | imagem de fundo do editor: caminho, opacidade, pintura, ajuste que cobre a area e persistencia |
-| `tests/test_icon.py` | 6 | icone do executavel: arquivos presentes, tamanhos do `.ico`, transparencia e carga no Qt |
+| `tests/test_icon.py` | 7 | icone do executavel: arquivos presentes, tamanhos do `.ico`, transparencia, arte inteira no quadro e carga no Qt |
 
-Total: 511 testes.
+Total: 512 testes.
 
 O teste de fumaca abre a interface em modo `offscreen`, digita um programa e
 valida aba por aba (tokens, erros, avisos, simbolos, classes de tokens, DFA e
@@ -141,8 +160,12 @@ tests/
   test_background.py     Testes da imagem de fundo do editor
 img/
   background.jpg         Imagem de fundo do editor (padrão)
+  racoon.png             Ícone da janela, barra de tarefas e executável
+  racoon.ico             Ícone do executável, gerado por tools/make_icon.py
 relatorio/
   relatorio.md           Relatorio do trabalho
+tools/
+  make_icon.py           Gera img/racoon.ico a partir de img/racoon.png
 ```
 
 ## Mapa dos requisitos

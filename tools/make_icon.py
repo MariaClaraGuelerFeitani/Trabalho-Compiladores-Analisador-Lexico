@@ -13,15 +13,17 @@ def main() -> int:
 
     imagem = Image.open(origem).convert("RGBA")
     recorte = imagem.crop(imagem.getbbox())
+    recorte.thumbnail((LADO_MAXIMO, LADO_MAXIMO), Image.Resampling.LANCZOS)
 
-    lado = max(recorte.size)
-    if lado > LADO_MAXIMO:
-        lado = LADO_MAXIMO
-    quadrado = Image.new("RGBA", (lado, lado), (0, 0, 0, 0))
-    quadrado.paste(recorte, ((lado - recorte.width) // 2, (lado - recorte.height) // 2))
+    deslocamento = ((LADO_MAXIMO - recorte.width) // 2, (LADO_MAXIMO - recorte.height) // 2)
+    quadrado = Image.new("RGBA", (LADO_MAXIMO, LADO_MAXIMO), (0, 0, 0, 0))
+    quadrado.alpha_composite(recorte, deslocamento)
 
     quadrado.save(destino, format="ICO", sizes=TAMANHOS)
-    print(f"{destino.name}: {quadrado.size[0]}x{quadrado.size[1]}, {len(TAMANHOS)} tamanhos")
+    print(
+        f"{destino.name}: {quadrado.size[0]}x{quadrado.size[1]} "
+        f"(arte {recorte.size[0]}x{recorte.size[1]}), {len(TAMANHOS)} tamanhos"
+    )
     return 0
 
 

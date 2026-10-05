@@ -7,7 +7,7 @@ para um dialeto da linguagem Pascal.
 | --- | --- |
 | Autores | Blendhon Pontini Delfino, Maria Clara Gueler Feitani |
 | Implementacao | `src/lexer/` (lexico) e `src/parser/` (sintatico) |
-| Testes | 511: `test_lexer.py` (135), `test_dfa.py` (139), `test_grammar.py` (26), `test_parser.py` (144), `test_highlighter.py` (38), `test_background.py` (23), `test_icon.py` (6) |
+| Testes | 512: `test_lexer.py` (135), `test_dfa.py` (139), `test_grammar.py` (26), `test_parser.py` (144), `test_highlighter.py` (38), `test_background.py` (23), `test_icon.py` (7) |
 
 ---
 
@@ -489,7 +489,7 @@ Todos os testes de fumaça passaram.
 | `tests/test_parser.py` | 144 | programas validos e invalidos, `for` com `to` e `downto`, corpo simples e em bloco, `record`, enumeracao com e sem intervalo, acesso a campo, parametros com e sem parenteses, chamada de funcao em expressao, `;` final facultativo, aviso de instrucao sem efeito, ausencia de falso positivo em chamada de procedimento, recuperacao de erro e integracao com `AnaliseService` |
 | `tests/test_highlighter.py` | 38 | realce por classe de token, negrito em palavra reservada e italico em comentario, cores padrao dos dois temas, preferencia sobrepondo o tema, as tres formas de comentario com aninhamento e multiplas linhas, token que passa do fim da linha, erro lexico sem derrubar o realce, repintura sem `textChanged` espurio e integracao com a janela principal |
 | `tests/test_background.py` | 23 | presenca da imagem que acompanha o projeto, caminho valido, vazio e inexistente, faixa de opacidade, pintura efetiva do fundo lida pixel a pixel, ajuste que cobre a area em quatro combinacoes de proporcao sem deixar canto vazio, proporcao preservada, ampliacao de imagem menor que a area, reuso e invalidacao da escala, persistencia das preferencias e faixa propria do campo de opacidade |
-| `tests/test_icon.py` | 6 | presenca da imagem e do `.ico`, leitura do diretorio do `.ico` conferindo 16, 32 e 256 px, transparencia do PNG, carga pelo `QIcon` e o contrato de `app_icon_file` com e sem o arquivo |
+| `tests/test_icon.py` | 7 | presenca da imagem e do `.ico`, leitura do diretorio do `.ico` conferindo 16, 32 e 256 px, transparencia do PNG, arte inteira e比例cional no quadro de 256 px, carga pelo `QIcon` e o contrato de `app_icon_file` com e sem o arquivo |
 | `tests/smoke_ui.py` | 60 verificacoes | interface completa com o analisador real ligado em `src/app.py`, incluindo a aba *Gramatica* |
 
 ### 9.1 Realce sintatico
@@ -574,12 +574,23 @@ que sozinhosrespondem por boa parte do tamanho.
 
 O icone vem de `img/racoon.png`, uma imagem de 512x512 com canal alfa. O Windows
 nao aceita PNG direto no recurso do executavel, entao `tools/make_icon.py` gera
-`img/racoon.ico`: recorta a moldura transparente, monta um quadrado de 256x256
-centralizando o desenho e grava os sete tamanhos (16, 24, 32, 48, 64, 128 e 256).
-O quadrado e obrigatorio porque o diretorio do formato ICO guarda cada lado em um
+`img/racoon.ico`: recorta a moldura transparente, reduz a arte com LANCZOS ate caber
+no quadro de 256x256, centraliza e grava os sete tamanhos (16, 24, 32, 48, 64, 128 e
+256). O quadrado e obrigatorio porque o diretorio do formato ICO guarda cada lado em um
 byte, e um valor `0` ali significa 256; um recorte nao quadrado produziria entradas
 como 32x24, que o Windows sabe ler mas que nao correspondem ao que se espera de um
 icone.
+
+A reducao antes de centralizar nao e um detalhe cosmetico. O desenho do guaxinim e
+largo demais para o quadro, entao sobra largura e nao altura: colar a arte original
+(512x378) direto num canvas de 256x256 colocaria o `paste` com offset negativo, e o
+resultado seria um recorte central silencioso, com metade da largura e um terco da
+altura da arte perdidos, sem nenhum erro. Foi exatamente o que aconteceu na primeira
+versao do script, em que o `.ico` gerado saiu byte a byte igual ao recorte central de
+256x256 do PNG. `tests/test_icon.py::test_ico_nao_corta_a_arte` existe para travar
+isso: ele le o quadro de 256 px de dentro do proprio `.ico`, mede a silhueta e exige
+que ela seja menor que o quadro (margem transparente) e que mantenha a proporcao do
+PNG dentro de 2%, o que so acontece se a arte foi reduzida e nao cortada.
 
 O mesmo PNG e usado em tempo de execucao, por `src/app.py`: `app_icon_file()`
 devolve o caminho se o arquivo existir, e o `QIcon` vai para o `QApplication`, o
