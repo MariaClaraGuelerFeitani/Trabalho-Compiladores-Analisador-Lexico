@@ -377,6 +377,7 @@ class MainWindow(QMainWindow):
 
         apply_theme(QApplication.instance(), settings.theme)
 
+        self.editor.set_theme(settings.theme)
         self.editor.set_current_line_color(_optional_color(settings.current_line_color))
         self.editor.set_error_color(_optional_color(settings.error_color))
         self.editor.set_highlight_colors(

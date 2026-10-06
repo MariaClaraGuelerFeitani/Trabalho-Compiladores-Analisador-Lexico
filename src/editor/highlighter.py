@@ -22,6 +22,7 @@ from ..lexer.tokens import (
     PALAVRAS_RESERVADAS,
     TIPOS_PRIMARIOS,
 )
+from ..theme import DARK, LIGHT, spec_for
 
 CATEGORY_KEYWORD = "palavra_reservada"
 CATEGORY_TYPE = "tipo_primario"
@@ -60,21 +61,8 @@ CATEGORY_BY_TOKEN: dict[str, str] = {
     LITERAL: CATEGORY_LITERAL,
 }
 
-DARK_COLORS: dict[str, str] = {
-    CATEGORY_KEYWORD: "#569cd6",
-    CATEGORY_TYPE: "#4ec9b0",
-    CATEGORY_NUMBER: "#d7ba7d",
-    CATEGORY_LITERAL: "#ce9178",
-    CATEGORY_COMMENT: "#7ca668",
-}
-
-LIGHT_COLORS: dict[str, str] = {
-    CATEGORY_KEYWORD: "#0b5cad",
-    CATEGORY_TYPE: "#0f7b7b",
-    CATEGORY_NUMBER: "#a05000",
-    CATEGORY_LITERAL: "#a31515",
-    CATEGORY_COMMENT: "#5a8a4a",
-}
+DARK_COLORS: dict[str, str] = dict(DARK.syntax)
+LIGHT_COLORS: dict[str, str] = dict(LIGHT.syntax)
 
 FREE_STATE = 0
 
@@ -83,16 +71,28 @@ def category_of(token_type: str) -> str:
     return CATEGORY_BY_TOKEN.get(token_type, "")
 
 
-def default_colors(palette: QPalette) -> dict[str, QColor]:
-    claro = palette.color(QPalette.ColorRole.Base).lightness() >= 128
-    tabela = LIGHT_COLORS if claro else DARK_COLORS
+def _syntax_for(theme: str) -> dict[str, str]:
+    spec = spec_for(theme) if theme else None
+    if spec is None or not spec.syntax:
+        return {}
+    if any(categoria not in spec.syntax for categoria in CATEGORIES):
+        return {}
+    return {categoria: spec.syntax[categoria] for categoria in CATEGORIES}
+
+
+def default_colors(palette: QPalette, theme: str = "") -> dict[str, QColor]:
+    tabela = _syntax_for(theme)
+    if not tabela:
+        claro = palette.color(QPalette.ColorRole.Base).lightness() >= 128
+        generica = LIGHT_COLORS if claro else DARK_COLORS
+        tabela = {categoria: generica[categoria] for categoria in CATEGORIES}
     return {categoria: QColor(tabela[categoria]) for categoria in CATEGORIES}
 
 
 def resolve_colors(
-    overrides: Mapping[str, QColor], palette: QPalette
+    overrides: Mapping[str, QColor], palette: QPalette, theme: str = ""
 ) -> dict[str, QColor]:
-    cores = default_colors(palette)
+    cores = default_colors(palette, theme)
     for categoria, cor in overrides.items():
         if categoria in cores and cor.isValid():
             cores[categoria] = QColor(cor)

@@ -21,7 +21,6 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from src.editor.highlighter import (  # noqa: E402
     CATEGORIES,
-    CATEGORY_BY_TOKEN,
     CATEGORY_COMMENT,
     CATEGORY_KEYWORD,
     CATEGORY_LABELS,
@@ -37,7 +36,11 @@ from src.editor.highlighter import (  # noqa: E402
     resolve_colors,
 )
 from src.app import build_lexer  # noqa: E402
-from src.editor.code_editor import CodeEditor  # noqa: E402
+from src.editor.code_editor import (  # noqa: E402
+    ERROR_ON_DARK,
+    ERROR_ON_LIGHT,
+    CodeEditor,
+)
 from src.lexer import Lexer  # noqa: E402
 from src.lexer.tokens import (  # noqa: E402
     LITERAL,
@@ -48,7 +51,15 @@ from src.lexer.tokens import (  # noqa: E402
     TOKEN_CLASSES,
 )
 from src.main_window import MainWindow  # noqa: E402
-from src.settings import Settings  # noqa: E402
+from src.settings import (  # noqa: E402
+    THEME_CONTRAST,
+    THEME_DARK,
+    THEME_FOREST,
+    THEME_OCEAN,
+    THEME_SEPIA,
+    Settings,
+)
+from src.theme import CONTRAST, FOREST, OCEAN, SEPIA  # noqa: E402
 
 CORES: dict[str, QColor] = {
     CATEGORY_KEYWORD: QColor("#010101"),
@@ -159,6 +170,67 @@ def test_tema_escuro_nao_tem_cores_claras(app: QApplication) -> None:
         for categoria in CATEGORIES:
             esperada = QColor(tabela[categoria])
             assert default_colors(paleta)[categoria] == esperada, (spec.name, categoria)
+
+def test_cada_tema_novo_tem_realce_e_erro_proprios() -> None:
+    for spec in (OCEAN, SEPIA, CONTRAST, FOREST):
+        assert dict(spec.syntax) != dict(LIGHT_COLORS), spec.name
+        assert dict(spec.syntax) != dict(DARK_COLORS), spec.name
+        assert spec.error not in ("", ERROR_ON_LIGHT, ERROR_ON_DARK), spec.name
+
+def test_editor_muda_o_realce_e_o_erro_com_o_tema(app: QApplication) -> None:
+    editor = CodeEditor()
+    editor.setPlainText(PROGRAMA)
+    editor.set_tokens(analisar(PROGRAMA).tokens)
+
+    editor.set_theme(THEME_SEPIA)
+    assert editor.highlight_color(CATEGORY_KEYWORD) == QColor(
+        SEPIA.syntax[CATEGORY_KEYWORD]
+    )
+    assert editor.current_error_color() == QColor(SEPIA.error)
+
+    editor.set_theme(THEME_FOREST)
+    assert editor.highlight_color(CATEGORY_KEYWORD) == QColor(
+        FOREST.syntax[CATEGORY_KEYWORD]
+    )
+    assert editor.current_error_color() == QColor(FOREST.error)
+
+def test_troca_de_tema_continua_de_poe_a_preferencia_do_usuario(app: QApplication) -> None:
+    editor = CodeEditor()
+    editor.set_theme(THEME_CONTRAST)
+    editor.set_error_color(QColor("#123456"))
+    editor.set_highlight_colors({CATEGORY_KEYWORD: QColor("#654321")})
+
+    editor.set_theme(THEME_DARK)
+
+    assert editor.current_error_color() == QColor("#123456")
+    assert editor.highlight_color(CATEGORY_KEYWORD) == QColor("#654321")
+    assert editor.highlight_color(CATEGORY_COMMENT) == QColor(
+        DARK_COLORS[CATEGORY_COMMENT]
+    )
+
+def test_tema_sem_spec_mantem_a_heuristica_no_editor(app: QApplication) -> None:
+    editor = CodeEditor()
+    editor.set_theme("inexistente")
+    editor.set_theme("light")
+    assert editor.highlight_color(CATEGORY_KEYWORD) == QColor(
+        LIGHT_COLORS[CATEGORY_KEYWORD]
+    )
+
+def test_janela_leva_o_tema_ao_editor(app: QApplication, tmp_path) -> None:
+    janela = MainWindow(build_lexer(), tmp_path / "preferencias.json")
+    janela.editor.setPlainText(PROGRAMA)
+    janela.analysis.analyze_now(PROGRAMA)
+    janela._on_text_changed()
+
+    janela.apply_settings(Settings(theme=THEME_OCEAN))
+
+    assert janela.editor.highlight_color(CATEGORY_KEYWORD) == QColor(
+        OCEAN.syntax[CATEGORY_KEYWORD]
+    )
+    documento = janela.editor.document()
+    assert cor_em(documento, *posicao_de(PROGRAMA, PALAVRAS_RESERVADAS["program"])) == QColor(
+        OCEAN.syntax[CATEGORY_KEYWORD]
+    )
 
 def test_preferencia_sobrepoe_a_cor_do_tema() -> None:
     paleta = QPalette()

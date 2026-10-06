@@ -44,8 +44,10 @@ from ..settings import (
     MIN_FONT_SIZE,
     THEME_CHOICES,
     THEME_LABELS,
+    THEME_SYSTEM,
     Settings,
 )
+from ..theme import build_palette, spec_for
 
 IMAGE_FILTER = "Imagens (*.png *.jpg *.jpeg *.webp *.bmp *.gif);;Todos os arquivos (*)"
 
@@ -200,7 +202,7 @@ class SettingsDialog(QDialog):
         self.highlight_buttons: dict[str, ColorButton] = {}
         self.highlight_auto: dict[str, QCheckBox] = {}
 
-        padrao = default_colors(self.palette())
+        padrao = default_colors(self._paleta_do_tema(), settings.theme)
         layout = QFormLayout()
         for categoria in CATEGORIES:
             valor = getattr(settings, PREFERENCE_FIELDS[categoria])
@@ -312,18 +314,26 @@ class SettingsDialog(QDialog):
         holder.setLayout(row)
         return holder
 
+    def _current_theme(self) -> str:
+        return self.theme_combo.currentData() or THEME_SYSTEM
+
+    def _paleta_do_tema(self) -> QPalette:
+        """Paleta do tema escolhido; o tema do sistema usa a paleta da janela."""
+        spec = spec_for(self._current_theme())
+        return build_palette(spec) if spec is not None else self.palette()
+
     def _fallback_current_line(self) -> QColor:
         from ..editor.code_editor import current_line_color  # noqa: PLC0415
 
-        return current_line_color(self.palette())
+        return current_line_color(self._paleta_do_tema())
 
     def _fallback_error(self) -> QColor:
         from ..editor.code_editor import error_color  # noqa: PLC0415
 
-        return error_color(self.palette())
+        return error_color(self._paleta_do_tema(), self._current_theme())
 
     def _highlight_colors(self) -> dict[str, QColor]:
-        cores = default_colors(self.palette())
+        cores = default_colors(self._paleta_do_tema(), self._current_theme())
         for categoria in CATEGORIES:
             if not self.highlight_auto[categoria].isChecked():
                 cores[categoria] = self.highlight_buttons[categoria].color()
@@ -333,9 +343,10 @@ class SettingsDialog(QDialog):
         self.highlight_preview.setFont(
             QFont(self.font_combo.currentFont().family(), self.size_spin.value())
         )
-        base = self.palette().color(QPalette.ColorRole.Base).name()
+        base = self._paleta_do_tema().color(QPalette.ColorRole.Base).name()
         self.highlight_preview.setStyleSheet(
-            f"background-color: {base}; color: {self.palette().color(QPalette.ColorRole.Text).name()};"
+            f"background-color: {base};"
+            f" color: {self._paleta_do_tema().color(QPalette.ColorRole.Text).name()};"
             " padding: 6px;"
         )
         cores = self._highlight_colors()
@@ -409,9 +420,21 @@ class SettingsDialog(QDialog):
         return Settings(**valores)
 
     def _emit(self) -> None:
+        self._on_change(self.settings())
+        self._update_theme_seeds()
         self._update_preview()
         self._update_background_hint()
-        self._on_change(self.settings())
+
+    def _update_theme_seeds(self) -> None:
+        """Repoe a cor de cada botao livre com a cor do tema recem-escolhido."""
+        if self.current_line_auto.isChecked():
+            self.current_line_button.set_color(self._fallback_current_line())
+        if self.error_auto.isChecked():
+            self.error_button.set_color(self._fallback_error())
+        padrao = default_colors(self._paleta_do_tema(), self._current_theme())
+        for categoria in CATEGORIES:
+            if self.highlight_auto[categoria].isChecked():
+                self.highlight_buttons[categoria].set_color(padrao[categoria])
 
     def _restore_defaults(self) -> None:
         defaults = Settings()
@@ -425,7 +448,7 @@ class SettingsDialog(QDialog):
         self.console_fg_button.set_color(QColor(defaults.console_foreground))
         self.background_edit.setText(defaults.background_image_path)
         self.background_spin.setValue(defaults.background_image_opacity)
-        padrao = default_colors(self.palette())
+        padrao = default_colors(self._paleta_do_tema(), self._current_theme())
         for categoria in CATEGORIES:
             self.highlight_buttons[categoria].set_color(padrao[categoria])
             self.highlight_auto[categoria].setChecked(True)

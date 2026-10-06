@@ -7,7 +7,7 @@ para um dialeto da linguagem Pascal.
 | --- | --- |
 | Autores | Blendhon Pontini Delfino, Maria Clara Gueler Feitani |
 | Implementacao | `src/lexer/` (lexico) e `src/parser/` (sintatico) |
-| Testes | 512: `test_lexer.py` (135), `test_dfa.py` (139), `test_grammar.py` (26), `test_parser.py` (144), `test_highlighter.py` (38), `test_background.py` (23), `test_icon.py` (7) |
+| Testes | 621: `test_lexer.py` (135), `test_dfa.py` (139), `test_grammar.py` (26), `test_parser.py` (144), `test_highlighter.py` (43), `test_theme.py` (104), `test_background.py` (23), `test_icon.py` (7) |
 
 O roteiro de apresentacao, com o passo a passo requisito por requisito e as
 respostas para as perguntas provaveis, esta em `relatorio/checklist.md`. O programa
@@ -507,7 +507,7 @@ Registradas para conhecimento:
 
 ```
 python -m pytest tests\ -q
-512 passed
+621 passed
 python tests\smoke_ui.py
 Todos os testes de fumaça passaram.
 ```
@@ -518,10 +518,11 @@ Todos os testes de fumaça passaram.
 | `tests/test_dfa.py` | 139 | determinismo, existencia de estados, alcancabilidade, aceitacao, ramos de palavra reservada, construcao do caminho dos numeros, dos literais e do intervalo `..`, maximo casamento, consistencia das tabelas exportadas |
 | `tests/test_grammar.py` | 26 | transcricao do Anexo I, presenca das extensoes, terminais da gramatica existentes em `tokens.py`, producoes derivadas de todas as nao terminais e geracao das linhas exibidas na interface |
 | `tests/test_parser.py` | 144 | programas validos e invalidos, `for` com `to` e `downto`, corpo simples e em bloco, `record`, enumeracao com e sem intervalo, acesso a campo, parametros com e sem parenteses, chamada de funcao em expressao, `;` final facultativo, aviso de instrucao sem efeito, ausencia de falso positivo em chamada de procedimento, recuperacao de erro e integracao com `AnaliseService` |
-| `tests/test_highlighter.py` | 38 | realce por classe de token, negrito em palavra reservada e italico em comentario, cores padrao dos dois temas, preferencia sobrepondo o tema, as tres formas de comentario com aninhamento e multiplas linhas, token que passa do fim da linha, erro lexico sem derrubar o realce, repintura sem `textChanged` espurio e integracao com a janela principal |
+| `tests/test_highlighter.py` | 43 | realce por classe de token, negrito em palavra reservada e italico em comentario, cores padrao dos dois temas, preferencia sobrepondo o tema, as tres formas de comentario com aninhamento e multiplas linhas, token que passa do fim da linha, erro lexico sem derrubar o realce, repintura sem `textChanged` espurio, troca de tema no editor e integracao com a janela principal |
+| `tests/test_theme.py` | 104 | registro dos oito temas, formato das 14 cores de paleta e das cores de realce, realce e erro proprios de cada tema novo, contraste minimo do texto, do realce e do erro sobre a base, `apply_theme` e o retorno ao tema do sistema, a escolha no dialogo de preferencias e o round-trip das preferencias |
 | `tests/test_background.py` | 23 | presenca da imagem que acompanha o projeto, caminho valido, vazio e inexistente, faixa de opacidade, pintura efetiva do fundo lida pixel a pixel, ajuste que cobre a area em quatro combinacoes de proporcao sem deixar canto vazio, proporcao preservada, ampliacao de imagem menor que a area, reuso e invalidacao da escala, persistencia das preferencias e faixa propria do campo de opacidade |
 | `tests/test_icon.py` | 7 | presenca da imagem e do `.ico`, leitura do diretorio do `.ico` conferindo 16, 32 e 256 px, transparencia do PNG, arte inteira e proporcional no quadro de 256 px, carga pelo `QIcon` e o contrato de `app_icon_file` com e sem o arquivo |
-| `tests/smoke_ui.py` | 60 verificacoes | interface completa com o analisador real ligado em `src/app.py`, incluindo a aba *Gramatica* |
+| `tests/smoke_ui.py` | 104 verificacoes | interface completa com o analisador real ligado em `src/app.py`, incluindo a aba *Gramatica*, e a aplicacao de cada tema na janela |
 
 ### 9.1 Realce sintatico
 
@@ -547,8 +548,8 @@ reconhece sobre o proprio texto, percorrendo o documento uma vez e guardando em
 comentario) e o estado `0` (comentario aninhado) sao normalizados para que a
 pintura possa ser refeita a qualquer momento.
 
-Cada categoria tem cor padrao para o tema claro e para o escurecido. As cores
-sao ajustaveis na aba *Realce* das preferencias, que mostra uma previa ao vivo e
+Cada categoria tem cor padrao no tema escolhido (ver 9.2). As cores sao
+ajustaveis na aba *Realce* das preferencias, que mostra uma previa ao vivo e
 aceita `#rrggbb` ou nomes de cor do Qt; a preferencia vazia mantem a cor do tema.
 Ao trocar as cores o documento inteiro e repintado.
 
@@ -560,7 +561,46 @@ realimenta o ciclo analise -> realce -> analise sem nunca terminar. O
 `tests/test_highlighter.py` cobre tanto a ausencia de `textChanged` espurio quanto
 o fato de abrir a janela nao marcar o programa como modificado.
 
-### 9.2 Imagem de fundo do editor
+### 9.2 Temas
+
+A paleta da interface vive em `src/theme.py`. Cada tema e um `ThemeSpec`
+congelado com catorze cores (uma por papel da `QPalette`), as cinco cores do
+realce sintatico e a cor do erro lexico. Sao oito temas embutidos, escolhidos
+em *Preferencias > Aparencia*:
+
+| Tema | Base | Destaque | Carater |
+| --- | --- | --- | --- |
+| Sistema | - | - | segue a paleta e o estilo do desktop |
+| Claro | `#ffffff` | `#0078d4` | o claro original do projeto |
+| Escuro | `#2d2d2d` | `#0078d4` | o escuro original do projeto |
+| Oceano | `#16202b` | `#2f81f7` | azul-marinho de noite, acentos ciano |
+| Sepia | `#fbf4e4` | `#b5651d` | papel creme, tinta marrom |
+| Alto contraste | `#000000` | `#ffd400` | preto puro, destaque amarelo |
+| Floresta | `#101a14` | `#2e9e6b` | verde-acinzentado, acento verde-agua |
+| Solarized claro | `#fdf6e3` | `#268bd2` | paleta Solarized classica |
+| Solarized escuro | `#002b36` | `#268bd2` | a mesma paleta sobre base escura |
+
+O tema `system` nao tem `ThemeSpec`: `remember_system_appearance()` guarda o
+estilo e a paleta no arranque, e `apply_theme()` os restaura quando ele e
+escolhido. Para o tema do sistema, e tambem para um id desconhecido vindo de um
+`settings.json` editado a mao, o realce cai na heuristica antiga: a luminosidade
+da cor `Base` decide entre a tabela clara e a escura.
+
+As cores de realce dos temas novos sao escurecidas ou clareadas em relacao a
+base ate atingir razao de contraste WCAG de 3:1, e o texto do editor de 4,5:1.
+`tests/test_theme.py` mede essa razao e falha se algum tema ficar ilegivel -
+ Solarized claro, por exemplo, usa `#6e8000` no lugar do verde canonico
+`#859900` justamente porque o canonico nao chegava a 3:1 sobre a base clara.
+
+O caminho do tema percorre a cadeia inteira: `MainWindow.apply_settings()`
+chama `apply_theme()` e depois `CodeEditor.set_theme()`, que guarda o id e
+reaplica as cores do realce e do sublinhado de erro. `default_colors()` e
+`error_color()` aceitam o id do tema como ultimo argumento, com a assinatura
+antiga preservada, de modo que a heuristica continua valendo para quem nao
+passa o id. Como sempre, uma preferencia explicita do usuario vence a cor do
+tema, e a troca de tema repinta o documento inteiro.
+
+### 9.3 Imagem de fundo do editor
 
 Alem do realce, o editor aceita uma imagem de fundo. O padrao e o arquivo que
 acompanha o projeto, em `img/`, resolving `default_background_image()` em
@@ -595,7 +635,7 @@ O preenchimento da faixa dos numeros de linha nao e afetado: `LineNumberArea`
 continua sendo pintada a parte com a cor `Window`, o que mantem a coluna legivel
 mesmo com a imagem no maximo de opacidade.
 
-### 9.3 Executavel e icone
+### 9.4 Executavel e icone
 
 O projeto tambem e distribuido como `dist\Guaxinim.exe`, um arquivo unico de
 cerca de 43 MB, sem janela de console. O `Guaxinim.spec` descreve o empacotamento
@@ -688,7 +728,8 @@ flowchart TD
         HIGHLIGHT["TokenHighlighter<br/>src/editor/highlighter.py"]
         TABELAS["DataTable vezes 8<br/>src/panels/data_table.py"]
         CONSOLE["ConsoleView<br/>src/panels/console_view.py"]
-        PREFS["SettingsDialog + theme<br/>src/panels/settings_dialog.py"]
+        PREFS["SettingsDialog<br/>src/panels/settings_dialog.py"]
+        THEME["ThemeSpec x8<br/>src/theme.py<br/>paleta + realce + erro"]
     end
 
     CONFIG["config.py<br/>LANGUAGE_NAME - MAX_IDENTIFIER_LENGTH<br/>ANALYSIS_DEBOUNCE_MS"]
@@ -717,6 +758,9 @@ flowchart TD
     MW --> TABELAS
     MW --> CONSOLE
     MW --> PREFS
+    MW -->|"apply_theme"| THEME
+    THEME -.->|"syntax e error por tema"| HIGHLIGHT
+    PREFS -.-> THEME
     CONFIG -.-> LEXER
     CONFIG -.-> TOKENS
     CONFIG -.-> CTRL
@@ -742,6 +786,11 @@ Tres decisoes do desenho merecem explicacao:
   por `Lexer` em `build_lexer` remove o parser da IDE sem alterar uma linha da
   janela. O teste `tests/smoke_ui.py` usa um duble com o mesmo Protocol para
   contar chamadas.
+- **`theme.py` guarda a paleta, o realce e a cor do erro.** Um tema novo nao e
+  so uma troca de cores: para que o editor, o dialogo e o smoke test concordem
+  sobre a mesma cor, ela fica no `ThemeSpec` e desce por `set_theme()` ate o
+  `CodeEditor`. Quem precisa de cor - e nao de paleta - le o tema; a paleta em si
+  continua sendo responsabilidade da `QApplication`.
 - **`config.py` e lido por todos os modulos.** `MAX_IDENTIFIER_LENGTH` e
   importado pelo `tokens.py` para montar a regex de `ID`, de modo que mudar o
   limite em um lugar so muda a regex, a validacao e a tabela deste relatorio.

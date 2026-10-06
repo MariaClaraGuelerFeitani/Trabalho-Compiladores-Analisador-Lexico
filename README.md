@@ -72,11 +72,12 @@ python tests\smoke_ui.py
 | `tests/test_dfa.py` | 139 | invariantes do automato: determinismo, alcancabilidade, aceitacao e maximo casamento |
 | `tests/test_grammar.py` | 26 | transcricao do Anexo I, extensoes da parte 2 e consistencia terminal/token |
 | `tests/test_parser.py` | 144 | programas validos e invalidos, `for`, `record`, enumeracao, acesso a campo, chamada de funcao em expressao, `;` final facultativo, aviso de instrucao sem efeito e recuperacao |
-| `tests/test_highlighter.py` | 38 | realce por classe de token, cores do tema, preferencias, comentarios e integracao com a janela |
+| `tests/test_highlighter.py` | 43 | realce por classe de token, cores do tema, preferencias, comentarios e integracao com a janela |
+| `tests/test_theme.py` | 104 | os 8 temas: registro, cores da paleta, realce e erro proprios, contraste minimo, escolha no dialogo e persistencia |
 | `tests/test_background.py` | 23 | imagem de fundo do editor: caminho, opacidade, pintura, ajuste que cobre a area e persistencia |
 | `tests/test_icon.py` | 7 | icone do executavel: arquivos presentes, tamanhos do `.ico`, transparencia, arte inteira no quadro e carga no Qt |
 
-Total: 512 testes.
+Total: 621 testes.
 
 O teste de fumaca abre a interface em modo `offscreen`, digita um programa e
 valida aba por aba (tokens, erros, avisos, simbolos, classes de tokens, DFA e
@@ -128,7 +129,11 @@ relatorio nao consegue divergir do que o programa faz.
   no Windows o `AppUserModelID` evita que o Explorador mostre o icone do Python
 - Abas: Tokens, Erros, Avisos, Tabela de Simbolos, Classes de Tokens,
   DFA - Estados, DFA - Transicoes e Gramatica
-- Preferencias em JSON (tema claro/escuro/sistema, fonte, cores do editor e do
+- Nove temas em **Preferencias > Aparencia**: Sistema, Claro, Escuro, Oceano, Sepia,
+  Alto contraste, Floresta e Solarized (claro e escuro). Cada tema traz a paleta da
+  interface, as cores do realce e a cor do erro; o tema do sistema segue a
+  paleta do desktop. Uma preferencia de cor sempre vence a cor do tema.
+- Preferencias em JSON (tema, fonte, cores do editor e do
   terminal, cores do realce, imagem de fundo) com visualizacao ao vivo
 - Numero maximo de identificadores (15 caracteres), comentarios em `//`, `{ }` e `(* *)`,
   palavras reservadas em minusculas - tratados pelo analisador em `src/lexer/`
@@ -155,7 +160,8 @@ src/
   app.py                 Fabrica da janela; ponto de conexao da analise (build_lexer)
   config.py              Constantes: nome da linguagem, extensao .pas, fonte
   settings.py            Preferencias do usuario (JSON)
-  theme.py               Paletas claro/escuro e restauracao do tema do sistema
+  theme.py               Paletas dos 8 temas (com realce e cor de erro) e
+                         restauracao do tema do sistema
   main_window.py         Janela principal, menus, atalhos, paineis de saida
   editor/
     code_editor.py       Editor com numero de linha e sublinhado de erro

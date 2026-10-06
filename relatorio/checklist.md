@@ -12,7 +12,7 @@ mensagem aqui registradas sao as que aparecem na tela.
 ## 1. Antes de abrir o projetor
 
 - [ ] `python -m pip install -r requirements.txt`
-- [ ] `python -m pytest tests\ -q` e deixar `512 passed` na tela
+- [ ] `python -m pytest tests\ -q` e deixar `621 passed` na tela
 - [ ] `python main.py` e maximizar a janela
 - [ ] `Ctrl+,` e deixar o tema **escuro** (fica melhor no projetor)
 - [ ] `Ctrl+O` e abrir `relatorio/exemplo.pas`
@@ -296,6 +296,9 @@ Mostre ainda:
 
 - [ ] **Ctrl+,** e mostrar as 4 guias de preferencias com previa ao vivo
 - [ ] Trocar o tema em claro e escuro
+- [ ] Percorrer os 9 temas em **Preferencias > Aparencia** e mostrar que o realce
+      e a cor do erro mudam com o tema (Oceano, Sepia, Alto contraste, Floresta e
+      Solarized tem realce proprio)
 - [ ] `Ctrl+,` aba **Fundo**, mexer na opacidade da imagem do editor
 - [ ] Zoom com `Ctrl++` e `Ctrl+-`
 - [ ] Abrir a aba **Gramatica**: as producoes do Anexo I como dado, e as

@@ -19,12 +19,34 @@ from .config import (
 THEME_SYSTEM = "system"
 THEME_LIGHT = "light"
 THEME_DARK = "dark"
-THEME_CHOICES = (THEME_SYSTEM, THEME_LIGHT, THEME_DARK)
+THEME_OCEAN = "ocean"
+THEME_SEPIA = "sepia"
+THEME_CONTRAST = "contrast"
+THEME_FOREST = "forest"
+THEME_SOLARIZED_LIGHT = "solarized_light"
+THEME_SOLARIZED_DARK = "solarized_dark"
+THEME_CHOICES = (
+    THEME_SYSTEM,
+    THEME_LIGHT,
+    THEME_DARK,
+    THEME_OCEAN,
+    THEME_SEPIA,
+    THEME_CONTRAST,
+    THEME_FOREST,
+    THEME_SOLARIZED_LIGHT,
+    THEME_SOLARIZED_DARK,
+)
 
 THEME_LABELS = {
     THEME_SYSTEM: "Sistema",
     THEME_LIGHT: "Claro",
     THEME_DARK: "Escuro",
+    THEME_OCEAN: "Oceano",
+    THEME_SEPIA: "Sepia",
+    THEME_CONTRAST: "Alto contraste",
+    THEME_FOREST: "Floresta",
+    THEME_SOLARIZED_LIGHT: "Solarized claro",
+    THEME_SOLARIZED_DARK: "Solarized escuro",
 }
 
 MIN_FONT_SIZE = 6

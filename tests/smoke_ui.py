@@ -26,7 +26,6 @@ from src.settings import (
     load_settings,
     save_settings,
 )  # noqa: E402
-from src.theme import remember_system_appearance  # noqa: E402
 from src.services.lexer_service import (  # noqa: E402
     AnalysisResult,
     DfaState,
@@ -37,6 +36,7 @@ from src.services.lexer_service import (  # noqa: E402
     TokenClass,
     Warning,
 )
+from src.theme import remember_system_appearance  # noqa: E402
 
 
 class FakeLexer:
@@ -69,6 +69,28 @@ def check(condition: bool, label: str) -> None:
     print(f"{'ok  ' if condition else 'FALHA'} {label}")
     if not condition:
         raise AssertionError(label)
+
+
+def _canal(valor: int) -> float:
+    fracao = valor / 255
+    return fracao / 12.92 if fracao <= 0.04045 else ((fracao + 0.055) / 1.055) ** 2.4
+
+
+def contraste(primeira: str, segunda: str) -> float:
+    """Razao de contraste WCAG entre duas cores hex."""
+    a, b = QColor(primeira), QColor(segunda)
+    la = (
+        0.2126 * _canal(a.red())
+        + 0.7152 * _canal(a.green())
+        + 0.0722 * _canal(a.blue())
+    )
+    lb = (
+        0.2126 * _canal(b.red())
+        + 0.7152 * _canal(b.green())
+        + 0.0722 * _canal(b.blue())
+    )
+    alto, baixo = max(la, lb), min(la, lb)
+    return (alto + 0.05) / (baixo + 0.05)
 
 
 def main() -> int:
@@ -185,6 +207,61 @@ def main() -> int:
         system_base != dark_base or system_base == app.palette().color(QPalette.ColorRole.Base),
         "tema Sistema devolveu a paleta do sistema",
     )
+
+    from src.editor.highlighter import CATEGORY_KEYWORD  # noqa: PLC0415
+    from src.panels.settings_dialog import SettingsDialog  # noqa: PLC0415
+    from src.settings import THEME_CHOICES, THEME_LABELS  # noqa: PLC0415
+    from src.theme import THEMES, spec_for  # noqa: PLC0415
+
+    dialog = SettingsDialog(Settings(), lambda _s: None, window)
+    itens = [dialog.theme_combo.itemData(i) for i in range(dialog.theme_combo.count())]
+    check(itens == list(THEME_CHOICES), "Preferencias lista todos os temas")
+    check(
+        all(dialog.theme_combo.itemText(i) == THEME_LABELS[v] for i, v in enumerate(itens)),
+        "Preferencias mostra o rotulo de cada tema",
+    )
+    dialog.close()
+
+    for tema in THEME_CHOICES:
+        if tema == THEME_SYSTEM:
+            continue
+        spec = spec_for(tema)
+        window.apply_settings(Settings(theme=tema))
+        app.processEvents()
+        base = app.palette().color(QPalette.ColorRole.Base)
+        escura = base.lightness() < 128
+        check(base == QColor(spec.base), f"tema {tema} aplicou a base correta")
+        check(
+            contraste(spec.text, spec.base) >= 4.5,
+            f"tema {tema} mantem contraste entre base e texto",
+        )
+        check(
+            window.editor.current_line_color() != base,
+            f"tema {tema} pintou a linha atual com destaque",
+        )
+        check(
+            escura == (QColor(spec.base).lightness() < 128),
+            f"tema {tema} mantem a coerencia entre base e linha atual",
+        )
+        check(
+            window.editor.highlight_color(CATEGORY_KEYWORD)
+            == QColor(spec.syntax[CATEGORY_KEYWORD]),
+            f"tema {tema} aplicou o proprio realce",
+        )
+        check(
+            window.editor.current_error_color() == QColor(spec.error),
+            f"tema {tema} aplicou a propria cor de erro",
+        )
+
+    window.apply_settings(Settings(theme="inexistente"))
+    app.processEvents()
+    check(
+        window.editor.highlight_color(CATEGORY_KEYWORD)
+        == QColor(THEMES[THEME_DARK].syntax[CATEGORY_KEYWORD]),
+        "tema desconhecido cai na heuristica do editor",
+    )
+    check(len(THEMES) == len(THEME_CHOICES) - 1, "todo tema embutido tem spec")
+    window.apply_settings(Settings(theme=THEME_SYSTEM))
 
     window.apply_settings(Settings(font_family="Courier New", font_size=18))
     app.processEvents()

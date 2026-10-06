@@ -15,6 +15,7 @@ from PySide6.QtWidgets import QPlainTextEdit, QTextEdit, QWidget
 
 from ..config import monospace_font
 from ..services.lexer_service import LexicalError, Token
+from ..theme import spec_for
 from .highlighter import TokenHighlighter, resolve_colors
 
 LINE_NUMBER_MARGIN = 4
@@ -60,7 +61,10 @@ def line_number_color(palette: QPalette, current: bool) -> QColor:
     )
 
 
-def error_color(palette: QPalette) -> QColor:
+def error_color(palette: QPalette, theme: str = "") -> QColor:
+    spec = spec_for(theme) if theme else None
+    if spec is not None and spec.error:
+        return QColor(spec.error)
     return QColor(ERROR_ON_LIGHT if _base(palette).lightness() >= 128 else ERROR_ON_DARK)
 
 
@@ -86,6 +90,7 @@ class CodeEditor(QPlainTextEdit):
         self._error_list: list[LexicalError] = []
         self._current_line_override: QColor | None = None
         self._error_override: QColor | None = None
+        self._theme: str = ""
         self._highlight_overrides: dict[str, QColor] = {}
         self._highlighter = TokenHighlighter(self.document())
         self._background: QPixmap | None = None
@@ -240,7 +245,7 @@ class CodeEditor(QPlainTextEdit):
         return self._current_line_override or current_line_color(self.palette())
 
     def current_error_color(self) -> QColor:
-        return self._error_override or error_color(self.palette())
+        return self._error_override or error_color(self.palette(), self._theme)
 
     def set_current_line_color(self, color: QColor | None) -> None:
         self._current_line_override = None if color is None else QColor(color)
@@ -249,6 +254,12 @@ class CodeEditor(QPlainTextEdit):
     def set_error_color(self, color: QColor | None) -> None:
         self._error_override = None if color is None else QColor(color)
         self.set_error_marks(self._error_list)
+
+    def set_theme(self, theme: str) -> None:
+        self._theme = theme
+        self._apply_highlight_colors()
+        self.set_error_marks(self._error_list)
+        self._refresh_selections()
 
     def set_highlight_colors(self, colors: dict[str, QColor | None]) -> None:
         self._highlight_overrides = {
@@ -260,7 +271,7 @@ class CodeEditor(QPlainTextEdit):
 
     def _apply_highlight_colors(self) -> None:
         self._highlighter.set_colors(
-            resolve_colors(self._highlight_overrides, self.palette())
+            resolve_colors(self._highlight_overrides, self.palette(), self._theme)
         )
 
     def set_tokens(self, tokens: tuple[Token, ...]) -> None:
