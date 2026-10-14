@@ -34,6 +34,7 @@ from src.settings import (  # noqa: E402
     THEME_LABELS,
     THEME_LIGHT,
     THEME_OCEAN,
+    THEME_RESIDENT_EVIL,
     THEME_SEPIA,
     THEME_SOLARIZED_DARK,
     THEME_SOLARIZED_LIGHT,
@@ -57,7 +58,7 @@ from src.theme import (  # noqa: E402
 
 HEX = re.compile(r"#[0-9a-f]{6}")
 
-TEMAS_ESCUROS = (THEME_DARK, THEME_OCEAN, THEME_CONTRAST, THEME_FOREST, THEME_SOLARIZED_DARK)
+TEMAS_ESCUROS = (THEME_DARK, THEME_OCEAN, THEME_CONTRAST, THEME_FOREST, THEME_SOLARIZED_DARK, THEME_RESIDENT_EVIL)
 TEMAS_CLAROS = (THEME_LIGHT, THEME_SEPIA, THEME_SOLARIZED_LIGHT)
 
 TEMAS_NOVOS = (
@@ -67,6 +68,7 @@ TEMAS_NOVOS = (
     THEME_FOREST,
     THEME_SOLARIZED_LIGHT,
     THEME_SOLARIZED_DARK,
+    THEME_RESIDENT_EVIL,
 )
 
 CLARO = QPalette.ColorRole.Base
@@ -131,7 +133,7 @@ def test_escolhas_de_tema_sao_unicas() -> None:
 def test_escolhas_sao_o_sistema_mais_todos_os_temas_embutidos() -> None:
     assert THEME_CHOICES[0] == THEME_SYSTEM
     assert set(THEME_CHOICES) - {THEME_SYSTEM} == set(THEMES)
-    assert len(THEMES) == 8
+    assert len(THEMES) == 9
 
 def test_todos_os_temas_novos_estao_disponiveis() -> None:
     assert set(TEMAS_NOVOS) <= set(THEME_CHOICES)

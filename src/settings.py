@@ -9,6 +9,7 @@ from typing import get_type_hints
 from PySide6.QtCore import QStandardPaths
 
 from .config import (
+    ADA_BACKGROUND_IMAGE,
     COLOR_CONSOLE_BACKGROUND,
     COLOR_CONSOLE_FOREGROUND,
     EDITOR_FONT_FAMILY,
@@ -25,6 +26,7 @@ THEME_CONTRAST = "contrast"
 THEME_FOREST = "forest"
 THEME_SOLARIZED_LIGHT = "solarized_light"
 THEME_SOLARIZED_DARK = "solarized_dark"
+THEME_RESIDENT_EVIL = "resident_evil"
 THEME_CHOICES = (
     THEME_SYSTEM,
     THEME_LIGHT,
@@ -35,6 +37,7 @@ THEME_CHOICES = (
     THEME_FOREST,
     THEME_SOLARIZED_LIGHT,
     THEME_SOLARIZED_DARK,
+    THEME_RESIDENT_EVIL,
 )
 
 THEME_LABELS = {
@@ -47,6 +50,7 @@ THEME_LABELS = {
     THEME_FOREST: "Floresta",
     THEME_SOLARIZED_LIGHT: "Solarized claro",
     THEME_SOLARIZED_DARK: "Solarized escuro",
+    THEME_RESIDENT_EVIL: "Resident Evil",
 }
 
 MIN_FONT_SIZE = 6
@@ -79,11 +83,18 @@ class Settings:
     console_background: str = COLOR_CONSOLE_BACKGROUND
     console_foreground: str = COLOR_CONSOLE_FOREGROUND
 
-    def copy(self) -> "Settings":
+    def copy(self) -> Settings:
         return Settings(**asdict(self))
 
     def is_default_font(self) -> bool:
         return self.font_family == EDITOR_FONT_FAMILY and self.font_size == EDITOR_FONT_SIZE
+
+
+def default_background_image_for(theme: str) -> str:
+    """Imagem de fundo padrao associada a um tema (vazio quando nao houver)."""
+    if theme == THEME_RESIDENT_EVIL and ADA_BACKGROUND_IMAGE.is_file():
+        return str(ADA_BACKGROUND_IMAGE)
+    return ""
 
 
 def default_settings_path() -> Path:
@@ -125,6 +136,8 @@ def load_settings(path: Path | None = None) -> Settings:
     settings = Settings(**values)
     if settings.theme not in THEME_CHOICES:
         settings.theme = THEME_SYSTEM
+    if settings.theme == THEME_RESIDENT_EVIL and not settings.background_image_path:
+        settings.background_image_path = default_background_image_for(THEME_RESIDENT_EVIL)
     return settings
 
 

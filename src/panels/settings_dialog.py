@@ -46,6 +46,7 @@ from ..settings import (
     THEME_LABELS,
     THEME_SYSTEM,
     Settings,
+    default_background_image_for,
 )
 from ..theme import build_palette, spec_for
 
@@ -274,7 +275,7 @@ class SettingsDialog(QDialog):
             self._emit()
 
     def _use_bundled_background(self) -> None:
-        path = default_background_image()
+        path = default_background_image_for(self._current_theme()) or default_background_image()
         if path:
             self.background_edit.setText(path)
             self._emit()
@@ -323,12 +324,12 @@ class SettingsDialog(QDialog):
         return build_palette(spec) if spec is not None else self.palette()
 
     def _fallback_current_line(self) -> QColor:
-        from ..editor.code_editor import current_line_color  # noqa: PLC0415
+        from ..editor.code_editor import current_line_color
 
         return current_line_color(self._paleta_do_tema())
 
     def _fallback_error(self) -> QColor:
-        from ..editor.code_editor import error_color  # noqa: PLC0415
+        from ..editor.code_editor import error_color
 
         return error_color(self._paleta_do_tema(), self._current_theme())
 
@@ -358,8 +359,14 @@ class SettingsDialog(QDialog):
         html = "".join(partes).replace("\n", "<br>")
         self.highlight_preview.setText(html)
 
+    def _on_theme_changed(self) -> None:
+        padrao = default_background_image_for(self._current_theme())
+        if padrao:
+            self.background_edit.setText(padrao)
+        self._emit()
+
     def _connect(self) -> None:
-        self.theme_combo.currentIndexChanged.connect(self._emit)
+        self.theme_combo.currentIndexChanged.connect(self._on_theme_changed)
         self.font_combo.currentFontChanged.connect(self._emit)
         self.size_spin.valueChanged.connect(self._emit)
         self.current_line_button.clicked.connect(

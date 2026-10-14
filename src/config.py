@@ -33,8 +33,13 @@ NEW_FILE_TEMPLATE = (
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 IMAGE_DIR = PROJECT_ROOT / "img"
+SFX_DIR = PROJECT_ROOT / "sfx"
 BUNDLED_BACKGROUND_IMAGE = IMAGE_DIR / "background.jpg"
+ADA_BACKGROUND_IMAGE = IMAGE_DIR / "ada-wong2.webp"
 APP_ICON_FILE = IMAGE_DIR / "racoon.png"
+SFX_COMPILE = SFX_DIR / "compilar.mpeg"
+SFX_BUTTON = SFX_DIR / "botao.mpeg"
+SFX_BACKGROUND = SFX_DIR / "background.mpeg"
 
 
 def app_icon_file() -> str:
@@ -49,3 +54,15 @@ def monospace_font(family: str = "", size: int = 0) -> QFont:
     font = QFont(family or EDITOR_FONT_FAMILY, size or EDITOR_FONT_SIZE)
     font.setStyleHint(QFont.StyleHint.Monospace)
     return font
+
+
+def sfx_compile_path() -> str:
+    return str(SFX_COMPILE) if SFX_COMPILE.is_file() else ""
+
+
+def sfx_button_path() -> str:
+    return str(SFX_BUTTON) if SFX_BUTTON.is_file() else ""
+
+
+def sfx_background_path() -> str:
+    return str(SFX_BACKGROUND) if SFX_BACKGROUND.is_file() else ""

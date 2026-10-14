@@ -14,6 +14,7 @@ from .settings import (
     THEME_FOREST,
     THEME_LIGHT,
     THEME_OCEAN,
+    THEME_RESIDENT_EVIL,
     THEME_SEPIA,
     THEME_SOLARIZED_DARK,
     THEME_SOLARIZED_LIGHT,
@@ -257,6 +258,32 @@ SOLARIZED_DARK = ThemeSpec(
     error="#dc322f",
 )
 
+RESIDENT_EVIL = ThemeSpec(
+    name="resident_evil",
+    window="#1a1a1a",
+    window_text="#f2d74c",
+    base="#1e1e1e",
+    alternate_base="#283747",
+    text="#f5f5f5",
+    placeholder="#8a9aa8",
+    button="#2a2a2a",
+    button_text="#f5f5f5",
+    highlight="#da525e",
+    highlighted_text="#ffffff",
+    tooltip_base="#222222",
+    tooltip_text="#f2d74c",
+    disabled_text="#7a7a7a",
+    mid="#3a3a3a",
+    syntax=_cores(
+        palavra_reservada="#449bf9",
+        tipo_primario="#5eb4b9",
+        numero="#e0a152",
+        literal="#f2d74c",
+        comentario="#8a9aa8",
+    ),
+    error="#da525e",
+)
+
 THEMES: dict[str, ThemeSpec] = {
     THEME_LIGHT: LIGHT,
     THEME_DARK: DARK,
@@ -266,6 +293,7 @@ THEMES: dict[str, ThemeSpec] = {
     THEME_FOREST: FOREST,
     THEME_SOLARIZED_LIGHT: SOLARIZED_LIGHT,
     THEME_SOLARIZED_DARK: SOLARIZED_DARK,
+    THEME_RESIDENT_EVIL: RESIDENT_EVIL,
 }
 
 PALETTE_FIELDS: tuple[str, ...] = (

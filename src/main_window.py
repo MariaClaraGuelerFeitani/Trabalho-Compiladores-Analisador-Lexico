@@ -16,7 +16,21 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .config import LANGUAGE_NAME, NEW_FILE_TEMPLATE
+try:
+    from PySide6.QtMultimedia import QMediaPlayer, QSoundEffect
+    from PySide6.QtMultimedia.QAudio import QAudioOutput
+except Exception:  # pragma: no cover
+    QMediaPlayer = None  # type: ignore
+    QSoundEffect = None  # type: ignore
+    QAudioOutput = None  # type: ignore
+
+from .config import (
+    LANGUAGE_NAME,
+    NEW_FILE_TEMPLATE,
+    sfx_background_path,
+    sfx_button_path,
+    sfx_compile_path,
+)
 from .editor.code_editor import CodeEditor
 from .editor.highlighter import CATEGORIES, PREFERENCE_FIELDS
 from .panels.console_view import ConsoleView
@@ -26,7 +40,14 @@ from .parser.grammar import linhas_da_gramatica
 from .services.analysis_controller import AnalysisController
 from .services.file_service import UNSAVED_TITLE, FileService
 from .services.lexer_service import AnalysisResult, LexerService
-from .settings import MAX_FONT_SIZE, MIN_FONT_SIZE, Settings, load_settings, save_settings
+from .settings import (
+    MAX_FONT_SIZE,
+    MIN_FONT_SIZE,
+    Settings,
+    THEME_RESIDENT_EVIL,
+    load_settings,
+    save_settings,
+)
 from .theme import apply_theme
 
 WINDOW_SIZE = (1100, 720)
@@ -80,6 +101,7 @@ class MainWindow(QMainWindow):
         self._build_status_bar()
         self._connect()
 
+        self._init_sfx()
         self.apply_settings(self.settings)
         self.new_file()
         self._log(f"{LANGUAGE_NAME} pronto.")
@@ -210,10 +232,76 @@ class MainWindow(QMainWindow):
         self.statusBar().addPermanentWidget(self.position_label)
         self.statusBar().addPermanentWidget(self.state_label)
 
+    def _init_sfx(self) -> None:
+        self._sfx_players: dict[str, QMediaPlayer] = {}
+        self._sfx_outputs: dict[str, QAudioOutput] = {}
+        if QMediaPlayer is not None:
+            for name, path_func in (
+                ("compile", sfx_compile_path),
+                ("button", sfx_button_path),
+                ("background", sfx_background_path),
+            ):
+                path = path_func()
+                if path:
+                    player = QMediaPlayer(self)
+                    output = QAudioOutput(self)
+                    player.setAudioOutput(output)
+                    player.setSource(path)
+                    if name == "background":
+                        player.setLoops(-1)
+                    self._sfx_players[name] = player
+                    self._sfx_outputs[name] = output
+
+    def _play_sfx(self, name: str) -> None:
+        player = self._sfx_players.get(name)
+        if player is not None:
+            try:
+                player.setPosition(0)
+                player.play()
+            except Exception:
+                pass
+
+    def _maybe_play_button_sfx(self) -> None:
+        self._play_sfx("button")
+
+    def _maybe_play_compile_sfx(self) -> None:
+        self._play_sfx("compile")
+
+    def _maybe_start_bg_sfx(self) -> None:
+        player = self._sfx_players.get("background")
+        if player is not None:
+            try:
+                player.play()
+            except Exception:
+                pass
+
+    def _maybe_stop_bg_sfx(self) -> None:
+        player = self._sfx_players.get("background")
+        if player is not None:
+            try:
+                player.stop()
+            except Exception:
+                pass
+
     def _connect(self) -> None:
         self.editor.textChanged.connect(self._on_text_changed)
         self.editor.cursorPositionChanged.connect(self._update_position)
         self.analysis.result_ready.connect(self._show_result)
+        for action in [
+            self.action_new,
+            self.action_open,
+            self.action_save,
+            self.action_save_as,
+            self.action_exit,
+            self.action_clear_output,
+            self.action_preferences,
+            self.action_restore_defaults,
+            self.action_zoom_in,
+            self.action_zoom_out,
+            self.action_zoom_reset,
+        ]:
+            action.triggered.connect(self._maybe_play_button_sfx)
+        self.action_compile.triggered.connect(self._maybe_play_compile_sfx)
 
 
     def new_file(self) -> None:
@@ -392,6 +480,10 @@ class MainWindow(QMainWindow):
         self.output_console.apply_colors(
             settings.console_background, settings.console_foreground
         )
+        if settings.theme == THEME_RESIDENT_EVIL:
+            self._maybe_start_bg_sfx()
+        else:
+            self._maybe_stop_bg_sfx()
 
     def _apply_background(self, settings: Settings) -> None:
         caminho = settings.background_image_path
