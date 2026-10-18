@@ -4,7 +4,13 @@ a = Analysis(
     ["main.py"],
     pathex=[],
     binaries=[],
-    datas=[("img/background.jpg", "img"), ("img/racoon.png", "img")],
+    datas=[
+        ("img/background.jpg", "img"),
+        ("img/racoon.png", "img"),
+        ("sfx/botao.mpeg", "sfx"),
+        ("sfx/compilar.mpeg", "sfx"),
+        ("sfx/background.mpeg", "sfx"),
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -12,7 +18,6 @@ a = Analysis(
     excludes=[
         "PySide6.QtWebEngineCore",
         "PySide6.QtWebEngineWidgets",
-        "PySide6.QtMultimedia",
         "PySide6.Qt3DCore",
         "PySide6.QtQuick",
         "PySide6.QtQml",

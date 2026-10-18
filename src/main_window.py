@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QAction, QColor, QCloseEvent, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
@@ -17,8 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 try:
-    from PySide6.QtMultimedia import QMediaPlayer, QSoundEffect
-    from PySide6.QtMultimedia.QAudio import QAudioOutput
+    from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer, QSoundEffect
 except Exception:  # pragma: no cover
     QMediaPlayer = None  # type: ignore
     QSoundEffect = None  # type: ignore
@@ -246,7 +245,7 @@ class MainWindow(QMainWindow):
                     player = QMediaPlayer(self)
                     output = QAudioOutput(self)
                     player.setAudioOutput(output)
-                    player.setSource(path)
+                    player.setSource(QUrl.fromLocalFile(path))
                     if name == "background":
                         player.setLoops(-1)
                     self._sfx_players[name] = player
