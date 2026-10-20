@@ -394,7 +394,9 @@ class MainWindow(QMainWindow):
     def compile(self) -> None:
         result = self.analysis.analyze_now(self.editor.toPlainText())
         self._log(self._summarize(result))
-        self.output_tabs.setCurrentWidget(self.errors_table if result.has_errors else self.output_console)
+        self.output_tabs.setCurrentWidget(
+            self.errors_table if result.has_any_errors else self.output_console
+        )
 
     def _on_text_changed(self) -> None:
         self._modified = True
@@ -406,18 +408,20 @@ class MainWindow(QMainWindow):
         self.position_label.setText(f"Ln {cursor.blockNumber() + 1}, Col {cursor.positionInBlock() + 1}")
 
     def _summarize(self, result: AnalysisResult) -> str:
-        if result.has_errors:
-            return f"Analise concluida com {len(result.errors)} erro(s) e {result.token_count} token(s)."
+        if result.has_any_errors:
+            return f"Analise concluida com {len(result.all_errors)} erro(s) e {result.token_count} token(s)."
         return f"Analise concluida sem erros: {result.token_count} token(s)."
 
     def _show_result(self, result: AnalysisResult) -> None:
-        self.editor.set_error_marks(list(result.errors))
+        self.editor.set_error_marks(list(result.all_errors))
         self.editor.set_tokens(result.tokens)
 
         self.errors_table.set_rows(
-            [(e.line, e.column, e.lexeme, e.message) for e in result.errors]
+            [(e.line, e.column, e.lexeme, e.message) for e in result.all_errors]
         )
-        self.warnings_table.set_rows([(w.line, w.column, w.message) for w in result.warnings])
+        self.warnings_table.set_rows(
+            [(w.line, w.column, w.message) for w in result.all_warnings]
+        )
         self.tokens_table.set_rows(
             [(i, t.tipo, t.lexema, t.linha, t.coluna) for i, t in enumerate(result.tokens, start=1)]
         )
@@ -437,12 +441,16 @@ class MainWindow(QMainWindow):
 
         self._update_count_labels(result)
         self.state_label.setText(
-            f"{len(result.errors)} erro(s)" if result.has_errors else f"{result.token_count} token(s)"
+            f"{len(result.all_errors)} erro(s)"
+            if result.has_any_errors
+            else f"{result.token_count} token(s)"
         )
 
     def _update_count_labels(self, result: AnalysisResult) -> None:
-        self.output_tabs.setTabText(TAB_ERRORS, f"Erros ({len(result.errors)})")
-        self.output_tabs.setTabText(TAB_WARNINGS, f"Avisos ({len(result.warnings)})")
+        self.output_tabs.setTabText(TAB_ERRORS, f"Erros ({len(result.all_errors)})")
+        self.output_tabs.setTabText(
+            TAB_WARNINGS, f"Avisos ({len(result.all_warnings)})"
+        )
         self.output_tabs.setTabText(TAB_TOKENS, f"Tokens ({result.token_count})")
         self.output_tabs.setTabText(TAB_SYMBOLS, f"Tabela de simbolos ({len(result.symbols)})")
 

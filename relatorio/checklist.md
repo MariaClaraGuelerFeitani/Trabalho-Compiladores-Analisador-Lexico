@@ -12,11 +12,12 @@ mensagem aqui registradas sao as que aparecem na tela.
 ## 1. Antes de abrir o projetor
 
 - [ ] `python -m pip install -r requirements.txt`
-- [ ] `python -m pytest tests\ -q` e deixar `621 passed` na tela
+- [ ] `python -m pytest tests\ -q` e deixar `730 passed` na tela
 - [ ] `python main.py` e maximizar a janela
 - [ ] `Ctrl+,` e deixar o tema **escuro** (fica melhor no projetor)
 - [ ] `Ctrl+O` e abrir `relatorio/exemplo.pas`
-- [ ] Ter em maos `relatorio/relatorio.md` (secoes 10 e 11 sao o diagrama e a tabela)
+- [ ] Ter em maos `relatorio/relatorio.md` (secoes 10 e 11 sao o diagrama e a
+      tabela) e `relatorio/casos_de_teste/` (os tres `.pas` da etapa 2)
 - [ ] Testar o projetor de video: a fonte do editor e Consolas 11
 
 O programa ja abre com um modelo valido. Se preferir comecar do zero, `Ctrl+N`.
@@ -30,8 +31,8 @@ Diga o nome e o que o programa faz:
 > "A linguagem se chama **Guaxinim**. E um dialeto de Pascal. O que voces vao ver
 > e a IDE completa: editor com analise ao vivo, tabela de tokens, tabela de
 > simbolos, e o automato finito deterministico que reconhece a linguagem. Como
-> nao ha gerador de codigo, 'Compilar' significa rodar a analise lexico e a
-> sintatica."
+> nao ha gerador de codigo, 'Compilar' significa rodar a analise lexico, a
+> sintatica e a semantica."
 
 Aponte para a barra de status: `Ln 1, Col 1` a esquerda, `Pronto` a direita.
 
@@ -292,7 +293,61 @@ Mostre ainda:
 
 ---
 
-## 5. Extras, se sobrar tempo
+## 5. Analise semantica (terceira parte)
+
+Abra `relatorio/casos_de_teste/valido.pas` e **Ctrl+B**: **Erros (0)** e
+**Avisos (0)** — um programa com `const`, `record`, enumeracao, `procedure`,
+`function`, `for`, `while` e `repeat/until` passa nas tres fases.
+
+Depois abra `relatorio/casos_de_teste/erros_semanticos.pas`: os 9 erros aparecem
+na **mesma** aba **Erros**, com o **mesmo** sublinhado vermelho, so que comecam
+com `semantica: ` em vez de `sintaxe: `. O motivo e o mesmo do sintatico: o
+verificador constroi `LexicalError`, o mesmo tipo de dado, e a interface nao
+muda.
+
+**digitar**, observando o sublinhado no `x`:
+
+```pascal
+programa T;
+var x: integer;
+begin
+  x := 'abc'
+end.
+```
+
+```
+semantica: atribuição incompatível: não é possível atribuir string a integer
+```
+
+Cinco casos rapidos, todos verificados, para digitar em seguida:
+
+| O que digitar | Mensagem (linha, coluna do identificador) |
+| --- | --- |
+| `x := y;` sem declarar `y` | `identificador 'y' não declarado` |
+| `c := 2;` com `const c = 1` | `'c' é uma constante e não pode receber atribuição` |
+| `Q(1);` com `procedure Q(a, b: integer)` | `'Q' espera 2 argumento(s), encontrado 1` |
+| `for c := 1 to 3 do` sobre constante | `o laço 'for' exige uma variável; 'c' é uma constante` |
+| `var x: integer;` sem usar `x` | aviso: `variável 'x' declarada e não usada` |
+
+E o `x;` continua sendo **aceito com aviso** de instrução sem efeito, como o
+enunciado pede — sem virar erro de declaração.
+
+Explicacao curta para dizer em voz alta:
+
+> "A tabela de simbolos da etapa 1 era plana, so para a aba. A da analise
+> semantica tem escopos encadeados — global, programa e um por procedimento —
+> e cada expressao agora devolve o tipo inferido, com a unica promocao
+> integer para real. Os erros vao para os mesmos campos antigos do resultado,
+> por isso a interface nao mudou. E a analise semantica so roda quando nao ha
+> erro de sintaxe, para nao gerar mensagens em cascata."
+
+Por ultimo, `erro_sintatico.pas`: so as duas mensagens de `sintaxe: ` (falta de
+`then` e de `do`), porque com erro sintatico a fase semantica nem e anexada ao
+resultado.
+
+---
+
+## 6. Extras, se sobrar tempo
 
 - [ ] **Ctrl+,** e mostrar as 4 guias de preferencias com previa ao vivo
 - [ ] Trocar o tema em claro e escuro
@@ -307,9 +362,9 @@ Mostre ainda:
 
 ---
 
-## 6. Perguntas que o professor pode fazer
+## 7. Perguntas que o professor pode fazer
 
-Respostas curtas, com a justificativa pronta. A secao 8 do relatorio lista as dez
+Respostas curtas, com a justificativa pronta. A secao 8 do relatorio lista as treze
 discrepancias entre a especificacao e a implementacao; a maioria das respostas
 abaixo aponta para uma delas, e as que nao apontam sao perguntas sobre o
 automato, a recuperacao e o escopo do trabalho.
@@ -364,9 +419,24 @@ admitir em vez de defender: a forma aceita hoje e `end;`. Detalhado na secao 8 d
 relatorio, item 10.
 
 **Por que o programa nao executa?**
-O escopo do trabalho e a analise lexico-sintatica. Nao ha geracao de codigo nem
-maquina virtual. `writeln` e reconhecido como identificador, e a analise termina
-depois da gramatica.
+O escopo do trabalho e a analise lexico, sintatica e semantica. Nao ha geracao
+de codigo nem maquina virtual: a analise termina depois da verificacao de tipos.
+`writeln` nao e executado por ninguem — ele nasce declarado como procedimento
+predefinido, aceita qualquer numero de argumentos e serve para que as checagens
+de chamada nao acusem falso "nao declarado".
+
+**Por que `x;` nao gera "identificador nao declarado"?**
+Porque o enunciado pede que a instrucao sem efeito seja **aceita com aviso**.
+Quando o identificador esta sozinho na instrucao, o parser pergunta ao
+verificador se ele e um procedimento ou funcao declarados; se nao for, emite o
+aviso de instrução sem efeito e nao registra erro de declaração. Ja `x := 1`
+com `x` nao declarado e erro semantico normal.
+
+**`x := 4 / 2` da erro se `x` e integer?**
+Da, e e proposital: em Pascal a divisao `/` produz sempre `real`, mesmo com
+literais inteiros. A mensagem e `atribuição incompatível: não é possível
+atribuir real a integer`. A unica promocao de tipos do dialeto e `integer` em
+`real`.
 
 **Como voce garante que o automato e determinista?**
 `tests/test_dfa.py` monta a tabela de transicoes inteira e verifica que nao
@@ -376,12 +446,12 @@ token esperado. Sao 139 testes so nisso.
 
 ---
 
-## 7. Plano B
+## 8. Plano B
 
 | Problema | O que fazer |
 | --- | --- |
 | O pip install falha | Os testes nao dependem de rede depois de `PySide6` instalado. Rode `pytest` mesmo assim e use o `.exe`. |
 | A IDE nao abre | Rode `python main.py` e leia o erro no terminal. O executavel pronto e `dist/Guaxinim.exe`. |
 | O projetor nao mostra o editor | `Ctrl+,` e aumente a fonte, ou `Ctrl++` duas vezes. |
-| Um exemplo falhar | Os tres arquivos que importam sao `relatorio/exemplo.pas` (analise limpa, 250 tokens), o programa novo do editor e o exemplo embutido em `src/lexer/lexer.py`, que os testes exercitam em 135 casos. |
+| Um exemplo falhar | Os arquivos que importam sao `relatorio/exemplo.pas` (analise limpa, 250 tokens), `relatorio/casos_de_teste/valido.pas` (analise limpa nas tres fases), o programa novo do editor e o exemplo embutido em `src/lexer/lexer.py`, que os testes exercitam em 135 casos. |
 | O professor pedir o codigo | `README.md` tem a arvore de diretorios, `relatorio/relatorio.md` secao 10 tem o diagrama de modulos e a secao 11 a tabela de tokens. |

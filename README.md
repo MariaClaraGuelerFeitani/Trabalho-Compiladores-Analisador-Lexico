@@ -1,14 +1,19 @@
-# Trabalho de Compiladores - Analisadores Lexico e Sintatico
+# Trabalho de Compiladores - Analisadores Lexico, Sintatico e Semantico
 
-IDE e analisadores lexico e sintatico para um dialeto da linguagem Pascal,
-desenvolvido como trabalho da disciplina de Compiladores.
+IDE e analisadores lexico, sintatico e semantico para um dialeto da linguagem
+Pascal, desenvolvido como trabalho da disciplina de Compiladores.
 
-O analisador lexico esta implementado em `src/lexer/` e o analisador sintatico em
-`src/parser/`; ambos estao ligados a interface em `src/app.py` (`build_lexer`).
+O analisador lexico esta implementado em `src/lexer/`, o sintatico em
+`src/parser/` e o semantico em `src/semantic/`; todos estao ligados a interface
+em `src/app.py` (`build_lexer`).
 
 A segunda parte do trabalho acrescenta ao compilador: a estrutura de controle
 `for`, o aviso de "instrucao sem efeito" e, como ponto extra, os tipos `record` e
-enumeracao.
+enumeracao. A terceira parte acrescenta a analise semantica: tabela de simbolos
+com escopos encadeados (global, programa e um por procedimento/funcao),
+verificacao de identificadores nao declarados, de redeclaracoes, de
+compatibilidade de tipos em atribuicao, aritmetica, comparacoes e chamadas, com
+erros e avisos na mesma aba e no mesmo sublinhado das fases antigas.
 
 ## Requisitos
 
@@ -72,12 +77,13 @@ python tests\smoke_ui.py
 | `tests/test_dfa.py` | 139 | invariantes do automato: determinismo, alcancabilidade, aceitacao e maximo casamento |
 | `tests/test_grammar.py` | 26 | transcricao do Anexo I, extensoes da parte 2 e consistencia terminal/token |
 | `tests/test_parser.py` | 144 | programas validos e invalidos, `for`, `record`, enumeracao, acesso a campo, chamada de funcao em expressao, `;` final facultativo, aviso de instrucao sem efeito e recuperacao |
+| `tests/test_semantic.py` | 101 | escopos e sombreamento, identificador nao declarado, redeclaracao, compatibilidade de tipos, operadores, condicoes, alias, enumeracao e registro, aridade e tipos de argumentos, retorno de funcao, `for`, constantes, avisos e os tres casos de teste em `.pas` |
 | `tests/test_highlighter.py` | 43 | realce por classe de token, cores do tema, preferencias, comentarios e integracao com a janela |
 | `tests/test_theme.py` | 104 | os 8 temas: registro, cores da paleta, realce e erro proprios, contraste minimo, escolha no dialogo e persistencia |
 | `tests/test_background.py` | 23 | imagem de fundo do editor: caminho, opacidade, pintura, ajuste que cobre a area e persistencia |
 | `tests/test_icon.py` | 7 | icone do executavel: arquivos presentes, tamanhos do `.ico`, transparencia, arte inteira no quadro e carga no Qt |
 
-Total: 621 testes.
+Total: 730 testes.
 
 O teste de fumaca abre a interface em modo `offscreen`, digita um programa e
 valida aba por aba (tokens, erros, avisos, simbolos, classes de tokens, DFA e
@@ -87,9 +93,10 @@ gramatica), alem das preferencias (tema, fonte, cores, realce) e da persistencia
 
 | Arquivo | Conteudo |
 | --- | --- |
-| `relatorio/relatorio.md` | O relatorio do trabalho. A secao 10 tem o diagrama de modulos e a secao 11 a tabela de tokens |
+| `relatorio/relatorio.md` | O relatorio do trabalho. A secao 7 descreve os tres analisadores, a secao 10 tem o diagrama de modulos e a secao 11 a tabela de tokens |
 | `relatorio/checklist.md` | Checklist e roteiro de apresentacao, com as respostas preparadas para as perguntas provaveis |
 | `relatorio/exemplo.pas` | Programa de demonstracao: 250 tokens, 23 simbolos, sem erro |
+| `relatorio/casos_de_teste/` | Os tres casos de teste da etapa 2: `valido.pas` (valido nas tres fases), `erro_sintatico.pas` (dois erros com recuperacao) e `erros_semanticos.pas` (9 erros e 2 avisos) |
 | `relatorio/diagrama_modulos.png` | O diagrama da secao 10 ja renderizado, para leitores sem Mermaid |
 
 A tabela de tokens da secao 11 e gerada a partir do codigo, e nao escrita a mao:
@@ -111,15 +118,16 @@ relatorio nao consegue divergir do que o programa faz.
 | `Ctrl+O` | Abrir programa |
 | `Ctrl+S` | Salvar |
 | `Ctrl+Shift+S` | Salvar como |
-| `Ctrl+B` | Compilar (análise léxica e sintática imediatas) |
+| `Ctrl+B` | Compilar (análise léxica, sintática e semântica imediatas) |
 | `Ctrl+L` | Limpar a aba Saída |
 | `Ctrl+,` | Preferências (tema, fonte, cores, realce e fundo) |
 | `Ctrl++` / `Ctrl+-` / `Ctrl+0` | Aumentar / diminuir / restaurar a fonte |
 
 ## Funcionalidades da interface
 
-- Editor com numero da linha corrente e sublinhado vermelho para erros lexico-sintaticos,
-  com analise ao vivo durante a digitacao (debounce de 250 ms)
+- Editor com numero da linha corrente e sublinhado vermelho para erros lexico,
+  sintaticos e semanticos, com analise ao vivo durante a digitacao (debounce de
+  250 ms)
 - Realce sintatico por classe de token: palavra reservada (em negrito), tipo primario,
   numero, literal e comentario (em italico); identificadores e simbolos ficam com a
   cor normal do tema
@@ -147,8 +155,11 @@ relatorio nao consegue divergir do que o programa faz.
 | `src/lexer/lexer.py` | Scanner com maximo casamento, comentarios e tabela de simbolos |
 | `src/lexer/error_recovery.py` | Criacao de erros lexicos e pontos de sincronizacao |
 | `src/parser/grammar.py` | Anexo I em forma de dados, mais as extensoes da parte 2 |
-| `src/parser/parser.py` | Analisador sintatico por descida recursiva, com recuperacao |
-| `src/parser/service.py` | Encadeia lexico e sintatico em um unico `AnalysisResult` |
+| `src/parser/parser.py` | Analisador sintatico por descida recursiva, com recuperacao e ganchos para o semantico |
+| `src/parser/service.py` | Encadeia lexico, sintatico e semantico em um unico `AnalysisResult` |
+| `src/semantic/tipos.py` | Modelo de tipos (`integer`, `real`, `char`, `string`, logico) e regras de compatibilidade |
+| `src/semantic/tabela.py` | Tabela de simbolos com escopos encadeados e categorias de entrada |
+| `src/semantic/semantico.py` | Verificador semantico: declaracoes, escopos, tipos, chamadas e laço `for` |
 
 A construcao do automato e as regras de identificacao estao descritas em
 `relatorio/relatorio.md`.
@@ -176,12 +187,14 @@ src/
     lexer_service.py     Contrato LexerService e modelos de dados
   lexer/                 tokens, DFA, scanner, recuperacao de erros
   parser/                grammar, parser, service
+  semantic/              tipos, tabela de simbolos com escopos, verificador
 tests/
   smoke_ui.py            Teste de fumaca da interface
   test_lexer.py          Testes do analisador lexico
   test_dfa.py            Testes do automato
   test_grammar.py        Testes da gramatica
   test_parser.py         Testes do analisador sintatico
+  test_semantic.py       Testes do analisador semantico
   test_highlighter.py    Testes do realce sintatico
   test_background.py     Testes da imagem de fundo do editor
 img/
@@ -192,6 +205,7 @@ relatorio/
   relatorio.md           Relatorio do trabalho
   checklist.md           Checklist e roteiro de apresentacao em sala
   exemplo.pas            Programa de demonstracao (250 tokens, sem erro)
+  casos_de_teste/        valido.pas, erro_sintatico.pas e erros_semanticos.pas
 tools/
   make_icon.py           Gera img/racoon.ico a partir de img/racoon.png
   gerar_tabela_tokens.py Gera a tabela de tokens do relatorio a partir do codigo
@@ -217,6 +231,13 @@ tools/
 | 2 Estrutura de controle `for` | `Parser._instrucao_para` e `src/parser/grammar.py` |
 | 2 Warning de instrucao sem efeito | `Parser._instrucao_identificador` |
 | 2 Ponto extra: registro e enumeracao | `Parser._corpo_registro`, `Parser._lista_enumeracao`, `Lexer._declarar_registro` |
+| 3 Tabela de simbolos com escopos encadeados | `src/semantic/tabela.py` (`TabelaDeSimbolos`, `Escopo`, `Entrada`) |
+| 3 Identificador nao declarado e redeclaracao | `AnaliseSemantica.acesso`, `AnaliseSemantica._declarar` |
+| 3 Compatibilidade de tipos (atribuicao, aritmetica, comparacoes, retorno de funcao) | `src/semantic/tipos.py`, `verificar_atribuicao`, `combinar_aritmetico`, `comparar`, `combinar_logico` |
+| 3 Chamadas: aridade e tipos dos argumentos | `AnaliseSemantica.verificar_chamada` |
+| 3 Atribuicao a funcao so no proprio corpo | `abrir_subprograma` (entrada propria) e `acesso(como_alvo=True)` |
+| 3 Laço `for` com variavel inteira e limites inteiros | `verificar_controle_de_for`, `verificar_limite_de_for` |
+| 3 Erros com linha/coluna nas tres fases | `LexicalError`/`Warning` reutilizados, prefixos `sintaxe: ` e `semantica: ` |
 
 ### Decisoes de projeto
 
@@ -243,6 +264,23 @@ tools/
   procedimento em posicao de instrucao.
 - As secoes `var`, `const` e `type` podem aparecer em qualquer ordem antes das
   subrotinas; a gramatica do Anexo I admite um conjunto menor.
+- Erros e avisos semanticos ficam em campos proprios do `AnalysisResult`
+  (`semantic_errors` e `semantic_warnings`) e so entram no resultado final
+  quando nao ha erro sintatico, evitando cascata; a interface os exibe pela
+  uniao `all_errors`/`all_warnings`, nas mesmas abas e com o mesmo sublinhado.
+- O parser chama ganchos do `AnaliseSemantica` em vez de construir uma arvore
+  sintatica: sem o modulo semantico os ganchos ficam inertes, e os testes de
+  sintaxe continuam validos.
+- Na tabela semantica os identificadores sao sem distincao de maiusculas, como
+  no resto da linguagem; sombreamento entre escopos e permitido, e
+  redeclaracao no mesmo escopo e erro (o lexer, sem escopo, so avisava).
+- `write`, `writeln`, `read` e `readln` nascem declarados como procedimentos
+  predefinidos variadicos, para que `writeln('oi', 1)` nao seja "nao declarado".
+- Unica promocao de tipos: `integer` em `real`; a divisao `/` produz sempre
+  `real`, como no Pascal. O tipo logico dos comparadores e interno: a linguagem
+  nao declara `boolean`.
+- Variaveis declaradas e nao usadas geram aviso ao fechar o escopo; parametros
+  nao geram.
 
 ## Autores
 

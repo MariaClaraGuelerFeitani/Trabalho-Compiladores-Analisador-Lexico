@@ -77,10 +77,25 @@ class AnalysisResult:
     token_classes: tuple[TokenClass, ...] = ()
     dfa_states: tuple[DfaState, ...] = ()
     dfa_transitions: tuple[DfaTransition, ...] = ()
+    semantic_errors: tuple[LexicalError, ...] = ()
+    semantic_warnings: tuple[Warning, ...] = ()
 
     @property
     def has_errors(self) -> bool:
         return bool(self.errors)
+
+    @property
+    def all_errors(self) -> tuple[LexicalError, ...]:
+        """Erros léxicos, sintáticos e semânticos, para exibição no IDE."""
+        return self.errors + self.semantic_errors
+
+    @property
+    def all_warnings(self) -> tuple[Warning, ...]:
+        return self.warnings + self.semantic_warnings
+
+    @property
+    def has_any_errors(self) -> bool:
+        return bool(self.all_errors)
 
     @property
     def token_count(self) -> int:

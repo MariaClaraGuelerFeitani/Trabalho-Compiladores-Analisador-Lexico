@@ -15,13 +15,19 @@ A recuperação de erros é o método de panic: ao encontrar um token inesperado
 o parser registra o erro e descarta tokens até um ponto de sincronização
 (`PONTOS_DE_SINCRONIZACAO`), de onde tenta continuar. Isso permite corrigir
 vários erros do mesmo arquivo em uma única passagem.
+
+A **análise semântica** da etapa 2 é feita por um `AnaliseSemantica`
+injetado: o parser chama seus ganchos (declarações, atribuições, chamadas,
+controle do `for` e inferência de tipos das expressões) à medida que cada
+construção é reconhecida. Os erros semânticos são coletados pelo próprio
+módulo `src/semantic/` e só entram no resultado final quando não há erro
+sintático.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from ..services.lexer_service import LexicalError, Token, Warning
 from ..lexer.tokens import (
     ABRE_COLCHETES,
     ABRE_PARENTESES,
@@ -37,7 +43,6 @@ from ..lexer.tokens import (
     DO,
     DOIS_PONTOS,
     DOWNTO,
-    E,
     ELSE,
     END,
     ENUM,
@@ -74,7 +79,17 @@ from ..lexer.tokens import (
     VAR,
     VIRGULA,
     WHILE,
+    E,
 )
+from ..semantic.semantico import AnaliseSemantica, InfoAcesso
+from ..semantic.tipos import (
+    DESCONHECIDO,
+    INTEIRO,
+    LOGICO,
+    TIPO_STRING,
+    resultado_aritmetico,
+)
+from ..services.lexer_service import LexicalError, Token, Warning
 
 # Marca usada internamente para "fim da entrada". Não colide com nenhum token.
 FIM = ""
@@ -167,15 +182,23 @@ class _Estado:
 
 
 class Parser:
-    """Analisador sintático por descida recursiva sobre a gramática do Anexo I."""
+    """Analisador sintático por descida recursiva sobre a gramática do Anexo I.
+
+Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
+    análise (declarações, atribuições, chamadas, expressões); sem esse objeto,
+    a descida continua funcionando apenas com a checagem sintática, devolvendo
+    tipos desconhecidos nas expressões.
+    """
 
     def __init__(
         self,
         tokens: tuple[Token, ...],
         simbolos: tuple | None = None,
+        semantico: AnaliseSemantica | None = None,
     ) -> None:
         self._tokens = tokens
         self._estado = _Estado()
+        self._semantico = semantico
         self._subprogramas = {
             simbolo.identifier
             for simbolo in (simbolos or ())
@@ -184,9 +207,18 @@ class Parser:
 
     def analisar(self) -> ResultadoSintatico:
         self._estado = _Estado()
-        self._programa()
-        if not self._fim() and not self._estado.erros:
-            self._erro(f"token inesperado após o fim do programa: {self._descricao(self._atual())}")
+        if self._semantico is not None:
+            self._semantico.programa_iniciar()
+        try:
+            self._programa()
+            if not self._fim() and not self._estado.erros:
+                self._erro(
+                    f"token inesperado após o fim do programa: "
+                    f"{self._descricao(self._atual())}"
+                )
+        finally:
+            if self._semantico is not None:
+                self._semantico.programa_encerrar()
         return ResultadoSintatico(
             tuple(self._estado.erros),
             tuple(self._estado.avisos),
@@ -327,19 +359,23 @@ class Parser:
         self._derivacao("declConsList")
         if not self._verificar(ID):
             return False
+        token_nome = self._token_atual()
         if not self._esperar(ID, "o nome de uma constante"):
             return False
+        tipo_declarado = ""
         if self._aceitar(DOIS_PONTOS):
-            self._tipo()
+            tipo_declarado = self._tipo()
         if not self._verificar(IGUALDADE_COMPARACAO, ATRIBUICAO):
             self._erro("esperado '=' para o valor da constante")
             return False
         self._avancar()
-        self._valor()
+        tipo_valor = self._valor()
         if not self._verificar(PONTO_E_VIRGULA):
             self._erro("esperado ';' ao final da declaração de constante")
             return False
         self._avancar()
+        if self._semantico is not None and token_nome is not None:
+            self._semantico.declarar_constante(token_nome, tipo_declarado, tipo_valor)
         return True
 
     def _declaracao_variavel(self) -> None:
@@ -353,14 +389,20 @@ class Parser:
 
     def _declaracao_variavel_simples(self) -> bool:
         self._derivacao("declVar")
+        nomes: list[Token] = []
         while True:
+            token_nome = self._token_atual()
             if not self._esperar(ID, "o nome de uma variável"):
                 return False
+            if token_nome is not None:
+                nomes.append(token_nome)
             if not self._aceitar(VIRGULA):
                 break
         if not self._esperar(DOIS_PONTOS, "':' antes do tipo"):
             return False
-        self._tipo()
+        tipo = self._tipo()
+        if self._semantico is not None and nomes:
+            self._semantico.declarar_variaveis(tuple(nomes), tipo)
         if not self._verificar(PONTO_E_VIRGULA):
             self._erro("esperado ';' ao final da declaração de variável")
             return False
@@ -389,23 +431,30 @@ class Parser:
 
     def _declaracao_tipo_simples(self) -> bool:
         self._derivacao("declTipo")
+        token_nome = self._token_atual()
         if not self._esperar(ID, "o nome de um tipo"):
             return False
         if not self._esperar(IGUALDADE_COMPARACAO, "'=' na declaração de tipo"):
             return False
+        tipo_base = ""
+        campos: tuple[tuple[str, str], ...] | None = None
+        constantes: tuple[str, ...] | None = None
         if self._verificar(*TIPOS_PRIMARIOS):
-            self._avancar()
+            tipo_base = self._anterior().tipo if self._avancar() else ""
         elif self._verificar(ID):
-            self._avancar()
+            tipo_base = self._anterior().lexema if self._avancar() else ""
         elif self._verificar(ABRE_PARENTESES):
-            if not self._lista_enumeracao():
+            constantes = self._lista_enumeracao()
+            if constantes is None:
                 return False
         elif self._verificar(RECORD):
-            if not self._corpo_registro():
+            campos = self._corpo_registro()
+            if campos is None:
                 return False
         elif self._verificar(ENUM):
             self._avancar()
-            if not self._lista_enumeracao():
+            constantes = self._lista_enumeracao()
+            if constantes is None:
                 return False
         else:
             self._erro(
@@ -416,70 +465,85 @@ class Parser:
             self._erro("esperado ';' ao final da declaração de tipo")
             return False
         self._avancar()
+        if self._semantico is not None and token_nome is not None:
+            self._semantico.declarar_tipo(token_nome, tipo_base, campos, constantes)
         return True
 
-    def _lista_enumeracao(self) -> bool:
+    def _lista_enumeracao(self) -> tuple[str, ...] | None:
+        """Uma enumeração entre parênteses; devolve os nomes declarados."""
         self._derivacao("listaEnum")
         self._avancar()
         if not self._verificar(ID):
             self._erro("esperado o nome de uma constante de enumeração")
             self._sincronizar()
-            return False
+            return None
+        nomes: list[str] = []
         while self._verificar(ID):
-            self._avancar()
+            token = self._avancar()
+            if token is not None:
+                nomes.append(token.lexema)
             if self._aceitar(INTERVALO):
                 if not self._verificar(NUM, ID):
                     self._erro("esperado um número ou identificador para o fim do intervalo")
                     self._sincronizar()
-                    return False
-                self._avancar()
+                    return None
+                fim = self._avancar()
+                if fim is not None and fim.tipo == ID:
+                    # As duas pontas do intervalo viram constantes do tipo.
+                    nomes.append(fim.lexema)
             if not self._aceitar(VIRGULA):
                 break
         if not self._verificar(FECHA_PARENTESES):
             self._erro("esperado ')' para fechar a enumeração")
             self._sincronizar()
-            return False
+            return None
         self._avancar()
-        return True
+        return tuple(nomes)
 
-    def _corpo_registro(self) -> bool:
+    def _corpo_registro(self) -> tuple[tuple[str, str], ...] | None:
+        """O corpo `record ... end`; devolve pares (campo, tipo)."""
         self._derivacao("campos")
         self._avancar()
+        campos: list[tuple[str, str]] = []
         while not self._verificar(END):
             if self._fim():
                 self._erro("esperado 'end' para fechar o registro")
-                return False
+                return None
             inicio = self._estado.posicao
             if not self._verificar(ID):
                 # Só um `ID` pode iniciar um campo; qualquer outro token significa
                 # que o `record` foi esquecido.
                 self._erro("esperado 'end' para fechar o registro")
-                return False
-            if not self._campo():
+                return None
+            declaracao = self._campo()
+            if declaracao is None:
                 self._sincronizar()
                 if self._estado.posicao == inicio and not self._fim():
                     self._avancar()
-                return False
+                return None
+            campos.extend(declaracao)
         self._avancar()
-        return True
+        return tuple(campos)
 
-    def _campo(self) -> bool:
+    def _campo(self) -> tuple[tuple[str, str], ...] | None:
         self._derivacao("campo")
         if not self._verificar(ID):
             self._erro("esperado o nome de um campo do registro")
-            return False
-        self._avancar()
+            return None
+        token = self._avancar()
+        nomes = [token.lexema] if token is not None else []
         while self._aceitar(VIRGULA):
             if not self._esperar(ID, "o nome de um campo do registro"):
-                return False
+                return None
+            nomes.append(self._anterior().lexema)
         if not self._esperar(DOIS_PONTOS, "':' antes do tipo do campo"):
-            return False
-        self._tipo()
+            return None
+        tipo = self._tipo()
         if not self._verificar(PONTO_E_VIRGULA):
             self._erro("esperado ';' ao final da declaração do campo")
-            return False
+            return None
         self._avancar()
-        return True
+        return tuple((nome, tipo) for nome in nomes)
 
     def _declaracao_procedimento(self) -> None:
         self._derivacao("declProcedimento")
@@ -491,52 +555,71 @@ class Parser:
         self._derivacao("declProc")
         eh_funcao = self._atual() == FUNCTION
         self._avancar()
+        token_nome = self._token_atual()
         if not self._esperar(ID, "o nome do subprograma"):
             return False
+        parametros: tuple[tuple[str, str], ...] = ()
         if self._aceitar(ABRE_PARENTESES):
-            self._lista_parametros()
+            parametros = self._lista_parametros()
             self._esperar(FECHA_PARENTESES, "')'")
         elif not self._verificar(DOIS_PONTOS, PONTO_E_VIRGULA):
             # A lista de parâmetros é opcional: `procedure Q;` é válido.
             self._erro("esperado '(', ':' ou ';' após o nome do subprograma")
             return False
+        tipo_retorno = ""
         if eh_funcao:
             if not self._esperar(DOIS_PONTOS, "':' antes do tipo de retorno"):
                 return False
-            self._tipo()
-        if not self._verificar(PONTO_E_VIRGULA):
-            self._erro("esperado ';' ao final do cabeçalho do subprograma")
-            return False
-        self._avancar()
-        if self._verificar(VAR):
-            self._declaracao_variavel()
-        if not self._verificar(BEGIN):
-            self._erro("esperado 'begin' no corpo do subprograma")
-            return False
-        self._bloco()
-        return True
+            tipo_retorno = self._tipo()
+        iniciado = self._semantico is not None and token_nome is not None
+        if iniciado:
+            self._semantico.abrir_subprograma(
+                token_nome, eh_funcao, parametros, tipo_retorno
+            )
+        try:
+            if not self._verificar(PONTO_E_VIRGULA):
+                self._erro("esperado ';' ao final do cabeçalho do subprograma")
+                return False
+            self._avancar()
+            if self._verificar(VAR):
+                self._declaracao_variavel()
+            if not self._verificar(BEGIN):
+                self._erro("esperado 'begin' no corpo do subprograma")
+                return False
+            self._bloco()
+            return True
+        finally:
+            if iniciado:
+                self._semantico.fechar_subprograma()
 
-    def _lista_parametros(self) -> None:
+    def _lista_parametros(self) -> tuple[tuple[str, str], ...]:
+        """A lista completa entre parênteses; `;` separa grupos de parâmetros."""
         self._derivacao("parametros")
+        parametros: list[tuple[str, str]] = []
         while self._verificar(ID):
-            if not self._parametro():
-                return
+            grupo = self._parametro()
+            if grupo is None:
+                break
+            parametros.extend(grupo)
+        return tuple(parametros)
 
-    def _parametro(self) -> bool:
+    def _parametro(self) -> tuple[tuple[str, str], ...] | None:
         """Um parâmetro; em Pascal o separador `;` é facultativo antes do `)`."""
         self._derivacao("campo")
         if not self._esperar(ID, "o nome de um parâmetro"):
-            return False
+            return None
+        nomes = [self._anterior().lexema]
         while self._aceitar(VIRGULA):
             if not self._esperar(ID, "o nome de um parâmetro"):
-                return False
+                return None
+            nomes.append(self._anterior().lexema)
         if not self._esperar(DOIS_PONTOS, "':' antes do tipo do parâmetro"):
-            return False
-        self._tipo()
+            return None
+        tipo = self._tipo()
         if self._aceitar(PONTO_E_VIRGULA) or self._verificar(FECHA_PARENTESES):
-            return True
+            return tuple((nome, tipo) for nome in nomes)
         self._erro("esperado ';' ou ')' ao final da declaração de parâmetro")
-        return False
+        return None
 
     def _bloco(self) -> None:
         self._derivacao("bloco")
@@ -603,50 +686,77 @@ class Parser:
         self._erro(f"instrução inválida: {self._descricao(tipo)}")
         return False
 
-    def _sufixos_de_acesso(self) -> None:
-        """Consome `indice[...]` e `.campo` encadeados após um identificador."""
+    def _consumir_sufixos(self) -> list[tuple[str, Token | None]]:
+        """Consome `indice[...]` e `.campo` encadeados; devolve os marcadores."""
+        sufixos: list[tuple[str, Token | None]] = []
         while True:
             if self._verificar(ABRE_COLCHETES):
-                self._avancar()
+                marca = self._avancar()
                 self._expr_op()
                 self._esperar(FECHA_COLCHETES, "']'")
+                sufixos.append(("indice", marca))
             elif self._verificar(PONTO):
                 self._avancar()
+                campo = self._token_atual()
                 self._esperar(ID, "o nome do campo do registro")
+                sufixos.append(("campo", campo))
             else:
-                return
+                return sufixos
+
+    def _aplicar_sufixo(
+        self, info: InfoAcesso, tipo_sufixo: str, token: Token | None
+    ) -> InfoAcesso:
+        if self._semantico is None:
+            return info
+        if tipo_sufixo == "campo":
+            return self._semantico.acesso_campo(info, token)
+        return self._semantico.acesso_indice(info, token)
 
     def _instrucao_identificador(self) -> bool:
-        nome = self._token_atual()
+        token_id = self._token_atual()
         self._avancar()
-        self._sufixos_de_acesso()
+        sufixos = self._consumir_sufixos()
 
         if self._verificar(ABRE_PARENTESES):
             self._avancar()
-            self._argumentos()
+            tipos_argumentos = self._argumentos()
             self._esperar(FECHA_PARENTESES, "')'")
+            if self._semantico is not None and token_id is not None:
+                self._semantico.verificar_chamada(
+                    token_id, tipos_argumentos, como_instrucao=True
+                )
             return self._encerra_instrucao()
 
         if self._verificar(ATRIBUICAO):
             self._avancar()
-            self._expr()
+            tipo_expr = self._expr()
+            if self._semantico is not None and token_id is not None:
+                info = self._semantico.acesso(token_id, como_alvo=True)
+                for tipo_sufixo, token_sufixo in sufixos:
+                    info = self._aplicar_sufixo(info, tipo_sufixo, token_sufixo)
+                self._semantico.verificar_atribuicao(info, tipo_expr)
             return self._encerra_instrucao()
 
         if self._verificar(PONTO_E_VIRGULA, END) or self._fim():
-            if nome is not None and nome.lexema in self._subprogramas:
+            chamada = None
+            if self._semantico is not None and token_id is not None:
                 # `Q;` onde Q é um procedimento declarado é uma chamada sem
                 # argumentos, não uma instrução sem efeito.
+                chamada = self._semantico.instrucao_isolada(token_id)
+            elif token_id is not None and token_id.lexema in self._subprogramas:
+                chamada = True
+            if chamada:
                 self._aceitar(PONTO_E_VIRGULA)
                 return True
             self._avisar(
-                f"instrução sem efeito: '{nome.lexema if nome else ''}' não altera nenhum valor",
-                nome,
+                f"instrução sem efeito: '{token_id.lexema if token_id else ''}' não altera nenhum valor",
+                token_id,
             )
             self._aceitar(PONTO_E_VIRGULA)
             return True
 
         self._erro(
-            f"esperado ':=', '[', '(' ou ';' após '{nome.lexema if nome else ''}'"
+            f"esperado ':=', '[', '(' ou ';' após '{token_id.lexema if token_id else ''}'"
         )
         return False
 
@@ -664,7 +774,9 @@ class Parser:
 
     def _instrucao_se(self) -> bool:
         self._avancar()
-        self._expr()
+        token_condicao = self._token_atual()
+        tipo_condicao = self._expr()
+        self._verificar_condicao(tipo_condicao, token_condicao, "if")
         self._esperar(THEN, "'then'")
         if not self._instrucao():
             return False
@@ -674,7 +786,9 @@ class Parser:
 
     def _instrucao_enquanto(self) -> bool:
         self._avancar()
-        self._expr()
+        token_condicao = self._token_atual()
+        tipo_condicao = self._expr()
+        self._verificar_condicao(tipo_condicao, token_condicao, "while")
         self._esperar(DO, "'do'")
         return self._instrucao()
 
@@ -683,106 +797,180 @@ class Parser:
         if not self._instrucao():
             return False
         self._esperar(UNTIL, "'until'")
-        self._expr()
+        token_condicao = self._token_atual()
+        tipo_condicao = self._expr()
+        self._verificar_condicao(tipo_condicao, token_condicao, "until")
         return self._encerra_instrucao()
 
     def _instrucao_para(self) -> bool:
         self._avancar()
-        self._esperar(ID, "o nome da variável de controle")
+        token_variavel = self._token_atual()
+        if not self._esperar(ID, "o nome da variável de controle"):
+            return False
+        tipo_controle = DESCONHECIDO
+        if self._semantico is not None and token_variavel is not None:
+            tipo_controle = self._semantico.verificar_controle_de_for(token_variavel)
         if not self._esperar(ATRIBUICAO, "':='"):
             return False
-        self._expr()
+        token_limite = self._token_atual()
+        tipo_inicial = self._expr()
+        self._verificar_limite_de_for(tipo_controle, tipo_inicial, token_limite)
         if not self._aceitar(TO, DOWNTO):
             self._erro("esperado 'to' ou 'downto' no laço 'for'")
             return False
-        self._expr()
+        token_limite = self._token_atual()
+        tipo_final = self._expr()
+        self._verificar_limite_de_for(tipo_controle, tipo_final, token_limite)
         self._esperar(DO, "'do'")
         return self._instrucao()
 
-    def _argumentos(self) -> None:
+    def _verificar_condicao(
+        self, tipo: str, token: Token | None, comando: str
+    ) -> None:
+        if self._semantico is not None:
+            self._semantico.verificar_condicao(tipo, token, comando)
+
+    def _verificar_limite_de_for(
+        self, tipo_controle: str, tipo_limite: str, token: Token | None
+    ) -> None:
+        if self._semantico is not None:
+            self._semantico.verificar_limite_de_for(tipo_controle, tipo_limite, token)
+
+    def _verificar_chamada(self, token: Token | None, tipos_argumentos: tuple[str, ...]) -> str:
+        if self._semantico is None or token is None:
+            return DESCONHECIDO
+        return self._semantico.verificar_chamada(token, tipos_argumentos)
+
+    def _argumentos(self) -> tuple[str, ...]:
+        """A lista de argumentos de uma chamada; devolve o tipo de cada um."""
         self._derivacao("parametros2")
-        if not self._verificar(FECHA_PARENTESES):
-            while True:
-                self._expr()
-                if not self._aceitar(VIRGULA):
-                    break
+        if self._verificar(FECHA_PARENTESES):
+            return ()
+        tipos: list[str] = []
+        while True:
+            tipos.append(self._expr())
+            if not self._aceitar(VIRGULA):
+                break
+        return tuple(tipos)
 
     # --- Expressões -------------------------------------------------------
+    # Cada método devolve o tipo inferido da expressão (`""` quando
+    # desconhecido), que os ganchos semânticos usam nas checagens seguintes.
 
-    def _expr(self) -> None:
+    def _combinar_aritmetico(self, esquerda: str, direita: str, operador: Token | None) -> str:
+        if self._semantico is not None and operador is not None:
+            return self._semantico.combinar_aritmetico(esquerda, direita, operador)
+        resultado = resultado_aritmetico(esquerda, direita)
+        if resultado and operador is not None and operador.tipo == DIVISAO:
+            return REAL
+        return resultado
+
+    def _expr(self) -> str:
         self._derivacao("expr")
-        self._expr_comparacao()
+        tipo = self._expr_comparacao()
         while self._verificar(OU, E):
-            self._avancar()
-            self._expr_comparacao()
+            operador = self._avancar()
+            direita = self._expr_comparacao()
+            if self._semantico is not None and operador is not None:
+                tipo = self._semantico.combinar_logico(tipo, direita, operador)
+            else:
+                tipo = LOGICO
+        return tipo
 
-    def _expr_comparacao(self) -> None:
+    def _expr_comparacao(self) -> str:
         self._derivacao("exprComparacao")
-        self._expr_op()
+        tipo = self._expr_op()
         while self._verificar(*COMPARADORES):
-            self._avancar()
-            self._expr_op()
+            operador = self._avancar()
+            direita = self._expr_op()
+            if self._semantico is not None and operador is not None:
+                tipo = self._semantico.comparar(tipo, direita, operador)
+            else:
+                tipo = LOGICO
+        return tipo
 
-    def _expr_op(self) -> None:
+    def _expr_op(self) -> str:
         self._derivacao("exprOp")
-        self._termo()
+        tipo = self._termo()
         while self._verificar(*OPERADORES):
-            self._avancar()
-            self._termo()
+            operador = self._avancar()
+            direita = self._termo()
+            tipo = self._combinar_aritmetico(tipo, direita, operador)
+        return tipo
 
-    def _termo(self) -> None:
+    def _termo(self) -> str:
         self._derivacao("termo")
-        self._unario()
+        tipo = self._unario()
         while self._verificar(MULTIPLICACAO, DIVISAO):
-            self._avancar()
-            self._unario()
+            operador = self._avancar()
+            direita = self._unario()
+            tipo = self._combinar_aritmetico(tipo, direita, operador)
+        return tipo
 
-    def _unario(self) -> None:
+    def _unario(self) -> str:
         self._derivacao("unario")
+        operador = self._token_atual()
         if self._aceitar(*OPERADORES):
-            return self._unario()
-        self._fator()
+            tipo = self._unario()
+            if self._semantico is not None and operador is not None:
+                return self._semantico.combinar_unario(tipo, operador)
+            return resultado_aritmetico(INTEIRO, tipo)
+        return self._fator()
 
-    def _fator(self) -> None:
+    def _fator(self) -> str:
         self._derivacao("fator")
         if self._verificar(ABRE_PARENTESES):
             self._avancar()
-            self._expr()
+            tipo = self._expr()
             self._esperar(FECHA_PARENTESES, "')'")
-            return
-        if self._verificar(NUM, LITERAL):
+            return tipo
+        if self._verificar(NUM):
+            token = self._avancar()
+            if token is not None and token.atributos == "inteiro":
+                return INTEIRO
+            return REAL
+        if self._verificar(LITERAL):
             self._avancar()
-            return
+            return TIPO_STRING
         if self._verificar(ID):
-            self._variavel()
+            self._derivacao("variavel")
+            token_id = self._token_atual()
+            info = self._acesso(token_id, como_alvo=False)
+            tipo = info.tipo
+            chamou = False
             while self._verificar(ABRE_PARENTESES):
                 # Chamada de função usada como operando: `x := dobro(n)`.
                 self._derivacao("parametros2")
                 self._avancar()
-                self._argumentos()
+                tipos_argumentos = self._argumentos()
                 self._esperar(FECHA_PARENTESES, "')'")
-            return
+                chamou = True
+                tipo = self._verificar_chamada(token_id, tipos_argumentos)
+            if not chamou and self._semantico is not None and token_id is not None:
+                tipo = self._semantico.uso_sem_argumentos(token_id, info)
+            return tipo
         self._erro(f"esperado uma expressão, encontrado {self._descricao(self._atual())}")
         self._sincronizar()
+        return DESCONHECIDO
 
-    def _variavel(self) -> None:
-        self._derivacao("variavel")
+    def _acesso(self, token_id: Token | None, como_alvo: bool) -> InfoAcesso:
+        """Um `ID` com seus sufixos; infere o tipo final do acesso."""
+        if self._semantico is None or token_id is None:
+            self._avancar()
+            self._consumir_sufixos()
+            return InfoAcesso(Token(ID, "", 1, 1))
+        info = self._semantico.acesso(token_id, como_alvo)
         self._avancar()
-        if self._verificar(ABRE_COLCHETES):
-            self._avancar()
-            self._expr_op()
-            self._esperar(FECHA_COLCHETES, "']'")
-        elif self._verificar(PONTO):
-            # Acesso a campo de registro: `p.x`
-            self._avancar()
-            self._esperar(ID, "o nome do campo do registro")
+        for tipo_sufixo, token_sufixo in self._consumir_sufixos():
+            info = self._aplicar_sufixo(info, tipo_sufixo, token_sufixo)
+        return info
 
-    def _valor(self) -> None:
+    def _valor(self) -> str:
         self._derivacao("valor")
         if self._verificar(LITERAL):
             self._avancar()
-            return
-        self._unario()
+            return TIPO_STRING
+        return self._unario()
 
 
 def analisar(tokens: tuple[Token, ...], simbolos: tuple | None = None) -> ResultadoSintatico:

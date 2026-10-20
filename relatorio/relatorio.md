@@ -1,17 +1,18 @@
-# Analisadores Lexico e Sintatico
+# Analisadores Lexico, Sintatico e Semantico
 
-Trabalho da disciplina de Compiladores: IDE e analisadores lexico e sintatico
-para um dialeto da linguagem Pascal.
+Trabalho da disciplina de Compiladores: IDE e analisadores lexico, sintatico e
+semantico para um dialeto da linguagem Pascal.
 
 | | |
 | --- | --- |
 | Autores | Blendhon Pontini Delfino, Maria Clara Gueler Feitani |
-| Implementacao | `src/lexer/` (lexico) e `src/parser/` (sintatico) |
-| Testes | 621: `test_lexer.py` (135), `test_dfa.py` (139), `test_grammar.py` (26), `test_parser.py` (144), `test_highlighter.py` (43), `test_theme.py` (104), `test_background.py` (23), `test_icon.py` (7) |
+| Implementacao | `src/lexer/` (lexico), `src/parser/` (sintatico) e `src/semantic/` (semantico) |
+| Testes | 730: `test_lexer.py` (135), `test_dfa.py` (139), `test_grammar.py` (26), `test_parser.py` (144), `test_semantic.py` (101), `test_highlighter.py` (43), `test_theme.py` (104), `test_background.py` (23), `test_icon.py` (7) |
 
 O roteiro de apresentacao, com o passo a passo requisito por requisito e as
 respostas para as perguntas provaveis, esta em `relatorio/checklist.md`. O programa
-de demonstracao esta em `relatorio/exemplo.pas`.
+de demonstracao esta em `relatorio/exemplo.pas`, e os tres casos de teste
+comentados da etapa 2 estao em `relatorio/casos_de_teste/`.
 
 ---
 
@@ -349,7 +350,13 @@ Redeclarar um nome **nao** e erro lexico: a primeira declaracao e mantida e um
 
 ---
 
-## 7. O analisador sintatico
+## 7. Os analisadores sintatico e semantico
+
+O analisador sintatico (`src/parser/parser.py`) reconhece a linguagem por
+descida recursiva sobre a gramatica do Anexo I; a analise semantica
+(`src/semantic/`) verifica declaracoes, escopos e tipos. As duas camadas rodam
+na mesma passagem: o parser chama os ganchos do verificador semantico a medida
+que cada construcao e reconhecida (secoes 7.5 a 7.8).
 
 ### 7.1 A gramatica como dados
 
@@ -450,6 +457,148 @@ O parser so e executado quando o analisador lexico nao reportou nenhum erro
 um unico caractere invalido receberia dezenas de mensagens de sintaxe sobre uma
 estrutura que nunca chegou a ser reconhecida.
 
+### 7.5 A analise semantica por ganchos
+
+`src/semantic/` e a terceira fase do compilador. Ela nao percorre a fonte por
+conta propria: o parser, que ja caminha pelos tokens, chama seus metodos nos
+pontos exatos em que cada construcao fica reconhecida. A decisao de nao
+introduzir uma arvore sintatica abstrata foi deliberada: o parser de descida
+recursiva ja existe, e os ganchos mantem seus testes de sintaxe intactos — o
+verificador e opcional, e sem ele o parser devolve tipos desconhecidos
+(`""`) e segue apenas com as checagens sintaticas.
+
+| Momento da descida | Gancho chamado |
+| --- | --- |
+| `var a, b: tipo;` | `declarar_variaveis` |
+| `const c: tipo = valor;` | `declarar_constante` |
+| `type t = ...` (alias, enum, record) | `declarar_tipo` |
+| Cabecalho de `procedure`/`function` | `abrir_subprograma` e `fechar_subprograma` |
+| Identificador usado como fator | `acesso`, `uso_sem_argumentos` |
+| Chamada `f(...)` | `verificar_chamada` |
+| Atribuicao `x := expr` | `acesso(como_alvo=True)` e `verificar_atribuicao` |
+| `FOR ID := ...` | `verificar_controle_de_for` e `verificar_limite_de_for` |
+| Condicao de `if`, `while`, `until` | `verificar_condicao` |
+| Operadores das expressoes | `combinar_aritmetico`, `combinar_unario`, `comparar`, `combinar_logico` |
+
+Os metodos de expressao do parser (`_expr`, `_expr_op`, `_termo`, `_fator`, ...)
+agora devolvem o tipo inferido da expressao, que os ganchos usam nas checagens
+seguintes. O tipo desconhecido (`""`) e propagado depois de um erro real e faz
+os verificadores abrirem mao da checagem, de modo que um erro nao gera uma
+cascata de mensagens derivadas.
+
+Os diagnosticos semanticos reaproveitam `LexicalError` e `Warning`, com o
+prefixo `semantica: ` (o sintatico usa `sintaxe: `), e ficam guardados nos
+campos `semantic_errors` e `semantic_warnings` do `AnalysisResult`.
+`AnaliseService` so os anexa quando nao houve erro sintatico: analise semantica
+sobre uma estrutura incompleta so multiplicaria mensagens falsas. A interface
+consome a uniao das fases por `AnalysisResult.all_errors` e `.all_warnings`,
+entao os erros semanticos aparecem na **mesma** aba **Erros**, com o **mesmo**
+sublinhado vermelho, sem nenhum codigo novo no editor.
+
+### 7.6 Tabela de simbolos com escopos encadeados
+
+A tabela plana do lexer (secao 6) continua existindo para a aba *Tabela de
+simbolos*, mas ela nao responde perguntas de escopo. A analise semantica usa
+outra estrutura, em `src/semantic/tabela.py`: cada `Escopo` guarda seus
+simbolos e um ponteiro para o escopo-pai, e a busca sobe a cadeia ate o
+escopo-global. A pilha e:
+
+```
+global      (writeln, write, readln, read)
+  └─ programa        (declaracoes do programa)
+       └─ um escopo por procedimento/funcao (parametros + corpo)
+```
+
+Identificadores sao comparados sem distincao de maiusculas, como no resto da
+linguagem. Sombreamento entre escopos e permitido (`var x: integer` no global e
+`var x: real` dentro de um procedimento sao duas variaveis diferentes);
+redeclarar o mesmo nome **no mesmo escopo** e erro, com a linha da declaracao
+anterior na mensagem — o lexer, sem nocao de escopo, so podia emitir aviso para
+esse caso.
+
+Cada `Entrada` carrega o que a verificacao de tipos precisa: categoria
+(`variavel`, `constante`, `parametro`, `funcao`, `procedimento`, `constante de
+enumacao`, `tipo`, `tipo_enumeracao`, `tipo_registro`, `predefinido`), tipo,
+posicao, a lista de parametros com seus tipos, o tipo de retorno, os campos de
+um registro e se a entrada ja foi usada.
+
+Dois detalhes merecem destaque:
+
+- **O nome da funcao dentro do proprio corpo.** Ao abrir um `function f: tipo`,
+  o escopo do corpo recebe uma entrada `f` da categoria `funcao` marcada como
+  propria, cujo tipo e o proprio tipo de retorno. E assim que
+  `dobro := n * 2` e validado: a atribuicao esta sendo feita a uma "variavel"
+  de tipo `integer`, exatamente como em Pascal. Atribuir o nome de uma funcao
+  de fora do corpo e erro.
+- **Simbolos predefinidos.** `write`, `writeln`, `read` e `readln` nascem
+  declaradas no escopo-global como procedimentos variadicos, que aceitam
+  qualquer numero e qualquer tipo de argumento. Sem isso, todo programa que
+  imprimisse algo acusaria "identificador nao declarado".
+
+Ao fechar um escopo, variaveis declaradas e nao usadas geram aviso
+(`semantica: variavel 'x' declarada e nao usada`). Parametros nao geram aviso:
+deixar um parametro sem usar e comum em prototipos.
+
+### 7.7 Regras de compatibilidade de tipos
+
+Os tipos primitivos sao `integer`, `real`, `char` e `string`; o usuario define
+alias, enumeracoes e registros. As comparacoes produzem um tipo logico interno
+(`LOGICO`): a linguagem nao declara `boolean`, e `E`, `OU` e os comparadores
+operam sobre ele. As regras, em `src/semantic/tipos.py`:
+
+| Contexto | Aceito | Rejeitado |
+| --- | --- | --- |
+| Atribuicao | mesmo tipo; `integer` em `real` (unica promocao); `char` e `string` entre si | `real` em `integer`; numero em `string` |
+| Aritmetica (`+ - *`) | dois operandos numericos; o resultado e `real` se algum lado for | operandos string ou de enum |
+| Divisao `/` | dois numericos, resultado **sempre** `real` (regra de Pascal) | `4 / 2` atribuido a `integer` |
+| Comparadores | dois numericos, o mesmo tipo, ou `char` com `string` | `integer < string` |
+| `E`, `OU` | operandos logicos (resultados de comparacoes) | `1 ou 2` |
+| Condicao de `if`/`while`/`until` | logico | `if x then` com `x` inteira |
+| Atribuicao a funcao | no proprio corpo, com o tipo de retorno | de fora do corpo |
+| Chamada | aridade certa e cada argumento compativel com o parametro | argumento faltando ou sobrando |
+| `for` | variavel (nao constante) `integer`, com limites inteiros | `for c := ...` sobre constante |
+| Enumeracao | constante do mesmo tipo de enum | constante de outro tipo |
+| Registro | campo declarado (`p.x`) | campo inexistente; campo em nao-registro |
+
+Duas flexibilidades conscientes, registradas na secao 8 (itens 11 a 13): o
+controle do `for` aceita apenas `integer` (Pascal aceitaria qualquer tipo
+ordinal), e indices `x[i]` sao aceitos sem checagem de tipo porque a gramatica
+do dialeto nao tem declaracao de vetor — apenas os campos de registro sao
+verificados.
+
+### 7.8 Casos de teste da etapa 2
+
+Os tres arquivos comentados de `relatorio/casos_de_teste/` sao carregados pelos
+testes de ponta a ponta de `tests/test_semantic.py`:
+
+| Arquivo | O que demonstra | Saida esperada |
+| --- | --- | --- |
+| `valido.pas` | programa 100% valido: `const`, `type` com enum e record, `var`, `procedure`, `function`, `for ... to` e `downto`, `if/else`, `while`, `repeat/until`, `break`, `continue` | nenhuma mensagem |
+| `erro_sintatico.pas` | dois erros sintaticos com recuperacao em modo panico: falta de `then` (linha 15) e falta de `do` (linha 16) | `sintaxe: esperado 'then'` e `sintaxe: esperado 'do'`, e somente elas |
+| `erros_semanticos.pas` | os principais erros semanticos, um por linha comentada | 9 erros e 2 avisos |
+
+A saida de `erros_semanticos.pas`, na ordem da aba **Erros** (coluna linha):
+
+```
+linha 20: semantica: atribuição incompatível: não é possível atribuir string a integer
+linha 22: semantica: atribuição incompatível: não é possível atribuir integer a string
+linha 23: semantica: atribuição incompatível: não é possível atribuir real a integer
+linha 25: semantica: 'somar' espera 2 argumento(s), encontrado 1
+linha 26: semantica: 'somar' espera 2 argumento(s), encontrado 3
+linha 27: semantica: argumento 1 ('a'): esperado integer, encontrado string
+linha 29: semantica: identificador 'naoexiste' não declarado
+linha 30: semantica: 'limite' é uma constante e não pode receber atribuição
+linha 31: semantica: o laço 'for' exige uma variável; 'limite' é uma constante
+```
+
+E na aba **Avisos**, os dois identificadores isolados das linhas 34 e 35 —
+requisito do enunciado: aceitar, mas avisar:
+
+```
+instrução sem efeito: 'nome' não altera nenhum valor
+instrução sem efeito: 'invisivel' não altera nenhum valor
+```
+
 ---
 
 ## 8. Discrepâncias em relação à especificação
@@ -500,6 +649,18 @@ Registradas para conhecimento:
     Anexo I e mais previsivel do que aceitar duas regras diferentes para `;` na
     mesma posicao, mas e uma divergencia conhecida do Pascal usual, e nao um
     esquecimento.
+11. **Controle do `for` limitado a `integer`.** O Pascal aceita qualquer tipo
+    ordinal (enumeracao, `char`) como variavel de controle. Aqui a regra exige
+    `integer`, para manter a checagem simples; usar uma constante de enum no
+    controle gera erro.
+12. **`char` e `string` intercambiaveis na atribuicao.** O lexer tipa todo
+    literal como `string` (`'a'` nao distingue caractere de cadeia), entao a
+    compatibilidade entre os dois foi aceita nos dois sentidos, para que uma
+    variavel `char` seja utilizavel.
+13. **Indices nao verificados.** A gramatica admite `x[i]` e `r.campo`, mas o
+    dialeto nao tem declaracao de vetor. O acesso por indice e aceito sem
+    checagem de tipo (a expressao do indice em si continua sendo analisada);
+    apenas `r.campo` e verificado contra os campos declarados do registro.
 
 ---
 
@@ -507,7 +668,7 @@ Registradas para conhecimento:
 
 ```
 python -m pytest tests\ -q
-621 passed
+730 passed
 python tests\smoke_ui.py
 Todos os testes de fumaça passaram.
 ```
@@ -518,6 +679,7 @@ Todos os testes de fumaça passaram.
 | `tests/test_dfa.py` | 139 | determinismo, existencia de estados, alcancabilidade, aceitacao, ramos de palavra reservada, construcao do caminho dos numeros, dos literais e do intervalo `..`, maximo casamento, consistencia das tabelas exportadas |
 | `tests/test_grammar.py` | 26 | transcricao do Anexo I, presenca das extensoes, terminais da gramatica existentes em `tokens.py`, producoes derivadas de todas as nao terminais e geracao das linhas exibidas na interface |
 | `tests/test_parser.py` | 144 | programas validos e invalidos, `for` com `to` e `downto`, corpo simples e em bloco, `record`, enumeracao com e sem intervalo, acesso a campo, parametros com e sem parenteses, chamada de funcao em expressao, `;` final facultativo, aviso de instrucao sem efeito, ausencia de falso positivo em chamada de procedimento, recuperacao de erro e integracao com `AnaliseService` |
+| `tests/test_semantic.py` | 101 | escopos e sombreamento, identificador nao declarado, redeclaracao no mesmo escopo, compatibilidade de tipos em atribuicao, operadores aritmeticos e logicos, condicoes de `if`/`while`/`until`, alias, enumeracao e registro, aridade e tipos de argumentos, retorno de funcao, controle e limites do `for`, constantes, aviso de variavel nao usada, separacao das fases no `AnalysisResult` e os tres arquivos de `relatorio/casos_de_teste/` |
 | `tests/test_highlighter.py` | 43 | realce por classe de token, negrito em palavra reservada e italico em comentario, cores padrao dos dois temas, preferencia sobrepondo o tema, as tres formas de comentario com aninhamento e multiplas linhas, token que passa do fim da linha, erro lexico sem derrubar o realce, repintura sem `textChanged` espurio, troca de tema no editor e integracao com a janela principal |
 | `tests/test_theme.py` | 104 | registro dos oito temas, formato das 14 cores de paleta e das cores de realce, realce e erro proprios de cada tema novo, contraste minimo do texto, do realce e do erro sobre a base, `apply_theme` e o retorno ao tema do sistema, a escolha no dialogo de preferencias e o round-trip das preferencias |
 | `tests/test_background.py` | 23 | presenca da imagem que acompanha o projeto, caminho valido, vazio e inexistente, faixa de opacidade, pintura efetiva do fundo lida pixel a pixel, ajuste que cobre a area em quatro combinacoes de proporcao sem deixar canto vazio, proporcao preservada, ampliacao de imagem menor que a area, reuso e invalidacao da escala, persistencia das preferencias e faixa propria do campo de opacidade |
@@ -539,8 +701,9 @@ programas-fonte sejam lidos com mais rapidez. O realcador fica em
 | Comentario | `//`, `{ }` e `(* *)`, em italico | `comment_color` |
 
 Identificadores e simbolos ficam com a cor normal do tema: o realce e estritamente
-lexico e nao faz analise semantica de nomes, de modo que um identificador nunca
-e pintado como palavra reservada por similarities ortograficas.
+lexico e nao consulta a tabela da analise semantica (secao 7.6), de modo que um
+identificador nunca e pintado como palavra reservada por similarities
+ortograficas.
 
 Como o lexer descarta os comentarios da sequencia de tokens, o realcador os
 reconhece sobre o proprio texto, percorrendo o documento uma vez e guardando em
@@ -689,12 +852,13 @@ O programa esta em quatro camadas: entrada (`main.py` e `src/app.py`), servicos 
 orquestracao, os dois analisadores com o contrato que os liga, e a interface. O
 fluxo de uma tecla digitada e de um resultado de tela e sempre o mesmo:
 `textChanged` dispara o debounce, o controlador chama o servico de analise, o
-servico encadeia lexico e sintatico, e o `AnalysisResult` volta para a janela,
-que atualiza o editor, as oito tabelas e o console.
+servico encadeia lexico, sintatico e semantico, e o `AnalysisResult` volta para
+a janela, que atualiza o editor, as oito tabelas e o console.
 
 O bloco seguinte e Mermaid, que o GitHub, o VS Code e o Typora renderizam. Para
 quem abre em um leitor que nao understands Mermaid, a mesma figura esta renderizada
-em `relatorio/diagrama_modulos.png`.
+em `relatorio/diagrama_modulos.png` (renderizada antes da etapa 2; o bloco
+Mermaid abaixo ja inclui o modulo semantico).
 
 ```mermaid
 flowchart TD
@@ -705,7 +869,7 @@ flowchart TD
     subgraph SERVICOS["Servicos de orquestracao"]
         CTRL["AnalysisController<br/>src/services/analysis_controller.py<br/>QTimer de 250 ms"]
         FILE["FileService<br/>src/services/file_service.py"]
-        ANALISE["AnaliseService<br/>src/parser/service.py<br/>encadeia as duas fases"]
+        ANALISE["AnaliseService<br/>src/parser/service.py<br/>encadeia as tres fases"]
     end
 
     subgraph LEXICO["Analisador lexico"]
@@ -719,6 +883,12 @@ flowchart TD
     subgraph SINTATICO["Analisador sintatico"]
         PARSER["Parser<br/>src/parser/parser.py<br/>descida recursiva"]
         GRAMMAR["grammar.py<br/>ANEXO_I + EXTENSOES"]
+    end
+
+    subgraph SEMANTICO["Analise semantica"]
+        SEMA["AnaliseSemantica<br/>src/semantic/semantico.py<br/>ganchos do parser"]
+        TSEMA["TabelaDeSimbolos<br/>src/semantic/tabela.py<br/>escopos encadeados"]
+        TIPOS["tipos.py<br/>compatibilidade e inferencia"]
     end
 
     CONTRATO["lexer_service.py<br/>Token - LexicalError - Warning - Symbol<br/>DfaState - DfaTransition - AnalysisResult<br/>Protocol LexerService"]
@@ -742,7 +912,11 @@ flowchart TD
     MW --> FILE
     CTRL -->|"request e analyze_now"| ANALISE
     ANALISE -->|"analyze"| LEXER
-    ANALISE -->|"Parser"| PARSER
+    ANALISE -->|"AnaliseSemantica"| SEMA
+    ANALISE -->|"Parser(tokens, simbolos, semantico)"| PARSER
+    PARSER -->|"ganchos em declaracoes, chamadas e expressoes"| SEMA
+    SEMA --> TSEMA
+    SEMA --> TIPOS
     LEXER --> DFA
     LEXER --> TOKENS
     LEXER --> RECOV
