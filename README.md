@@ -16,11 +16,11 @@ compatibilidade de tipos em atribuicao, aritmetica, comparacoes e chamadas, com
 erros e avisos na mesma aba e no mesmo sublinhado das fases antigas.
 
 A quarta entrega transforma o IDE em compilador de verdade: o menu
-**Executar > Gerar executavel (F9)** traduz o programa para uma fonte C
-autossuficiente (`src/codegen/`) e la o com o Tiny C Compiler embutido em
-`tools/tcc/`, produzindo um `.exe` nativo do Windows ao lado do `.pas`;
-**Executar > Executar executavel (F5)** abre o binario em um console novo,
-onde `read`/`readln` funcionam interativamente; o console avisa se o
+**Executar > Executar (F5)** traduz o programa para uma fonte C
+autossuficiente (`src/codegen/`), la o com o Tiny C Compiler embutido em
+`tools/tcc/` — produzindo um `.exe` nativo do Windows ao lado do `.pas`,
+quando ainda nao existe — e abre o binario em um console novo, onde
+`read`/`readln` funcionam interativamente; o console avisa se o
 programa terminou sem erros e espera uma tecla antes de fechar. A interface tambem ganhou
 abas de editor, explorador de arquivos, busca e substituicao (Ctrl+F/Ctrl+H),
 arquivos recentes, zoom pela roda do mouse, layout persistido entre sessoes e
@@ -94,9 +94,9 @@ python tests\smoke_ui.py
 | `tests/test_background.py` | 23 | imagem de fundo do editor: caminho, opacidade, pintura, ajuste que cobre a area e persistencia |
 | `tests/test_icon.py` | 7 | icone do executavel: arquivos presentes, tamanhos do `.ico`, transparencia, arte inteira no quadro e carga no Qt |
 | `tests/test_codegen.py` | 38 | tradutor Pascal->C (tipos, record, enumeracao, lacos, strings, E/S, funcoes), integracao real com o TCC embutido, incluindo o `valido.pas` canonico, e a cadeia do cmd que segura o console aberto com aviso e `pause` |
-| `tests/test_ui_qol.py` | 40 | menu Exibir, explorador, sons so no tema Resident Evil (e antes do dialogo), recentes, busca/substituicao, zoom, geometria, temas por pasta, abas, foco do editor e geracao de executavel pela janela |
+| `tests/test_ui_qol.py` | 41 | menu Exibir, explorador, sons so no tema Resident Evil (e antes do dialogo), recentes, busca/substituicao, zoom, geometria, temas por pasta, abas, foco do editor, acao unica do Executar (F5) e geracao de executavel pela janela |
 
-Total: 808 testes.
+Total: 809 testes.
 
 O teste de fumaca abre a interface em modo `offscreen`, digita um programa e
 valida aba por aba (tokens, erros, avisos, simbolos, classes de tokens, DFA e
@@ -134,8 +134,7 @@ relatorio nao consegue divergir do que o programa faz.
 | `Ctrl+S` | Salvar |
 | `Ctrl+Shift+S` | Salvar como |
 | `Ctrl+B` | Compilar (análise léxica, sintática e semântica imediatas) |
-| `F9` | Gerar executável (traduz para C e compila com o TCC embutido) |
-| `F5` | Executar o `.exe` em um console novo (gera antes, se faltar; o console espera uma tecla no fim) |
+| `F5` | Executar: gera o `.exe` com o TCC embutido (se faltar) e abre em um console novo, com aviso de fim e espera por uma tecla |
 | `Ctrl+F` | Localizar no editor |
 | `Ctrl+H` | Localizar e substituir |
 | `Ctrl+L` | Limpar a aba Saída |
@@ -207,12 +206,13 @@ semantico terminam sem erros:
    `tools/tcc/tcc.exe` (Tiny C Compiler 0.9.27 win64, embutido no repositorio e
    no executavel do IDE; `tools/tcc/LICENSE.txt` registra origem e licenca
    LGPL). O `.exe` sai no mesmo diretorio do fonte.
-3. `Executar > Executar executavel (F5)` abre o binario com
-   `CREATE_NEW_CONSOLE`, entao o programa roda interativo: `readln` le do
-   teclado do proprio console, como um programa Pascal nativo. O console e
-   aberto por um `cmd` que, quando o programa termina, mostra se ele saiu
-   sem erros (ou com erro em tempo de execucao) e fica aberto ate uma
-   tecla ser pressionada, para dar tempo de ler a saida.
+3. `Executar > Executar (F5)` roda os passos 1 e 2 quando o `.exe` ainda
+   nao existe e em seguida abre o binario com `CREATE_NEW_CONSOLE`, entao o
+   programa roda interativo: `readln` le do teclado do proprio console,
+   como um programa Pascal nativo. O console e aberto por um `cmd` que,
+   quando o programa termina, mostra uma linha de separacao e avisa se ele
+   saiu sem erros (ou com erro em tempo de execucao), ficando aberto ate
+   uma tecla ser pressionada, para dar tempo de ler a saida.
 
 ## Analisadores
 
@@ -286,7 +286,7 @@ tools/
   make_icon.py           Gera img/racoon.ico a partir de img/racoon.png
   gerar_tabela_tokens.py Gera a tabela de tokens do relatorio a partir do codigo
   tcc/                   Tiny C Compiler 0.9.27 win64 embutido (tcc.exe, lib/, include/;
-                         LICENSE.txt com origem e licenca) usado pelo F9
+                         LICENSE.txt com origem e licenca) usado pelo Executar (F5)
 ```
 
 ## Mapa dos requisitos
@@ -316,8 +316,7 @@ tools/
 | 3 Atribuicao a funcao so no proprio corpo | `abrir_subprograma` (entrada propria) e `acesso(como_alvo=True)` |
 | 3 Laço `for` com variavel inteira e limites inteiros | `verificar_controle_de_for`, `verificar_limite_de_for` |
 | 3 Erros com linha/coluna nas tres fases | `LexicalError`/`Warning` reutilizados, prefixos `sintaxe: ` e `semantica: ` |
-| 4 Gerar executavel (`F9`) | `src/codegen/tradutor.py` (Pascal->C), `src/codegen/compilador.py` (TCC) e `tools/tcc/` |
-| 4 Executar em console novo (`F5`) | `executar()` em `src/codegen/compilador.py` (`CREATE_NEW_CONSOLE`, cadeia do `cmd` com aviso de fim e `pause`) |
+| 4 Executar (`F5`) gera e roda | `src/codegen/tradutor.py` (Pascal->C), `src/codegen/compilador.py` (TCC, `CREATE_NEW_CONSOLE` e cadeia do `cmd` com aviso de fim e `pause`) e `tools/tcc/` |
 | 4 Abas, explorador, busca/substituicao, recentes, layout e tema por pasta | `src/main_window.py`, `src/panels/file_explorer.py`, `src/panels/find_bar.py` |
 
 ### Decisoes de projeto

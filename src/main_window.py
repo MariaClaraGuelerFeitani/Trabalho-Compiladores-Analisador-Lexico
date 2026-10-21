@@ -383,18 +383,11 @@ class MainWindow(QMainWindow):
         self.action_compile = self._action(
             "&Compilar", self.compile, "Ctrl+B", "Roda a analise lexica agora", sfx="compile"
         )
-        self.action_generate = self._action(
-            "Gerar &executavel",
-            self.generate_executable,
-            "F9",
-            "Traduz o programa para C e gera um .exe com o TCC embutido",
-            sfx="compile",
-        )
         self.action_run = self._action(
-            "&Executar executavel",
+            "&Executar",
             self.run_executable,
             "F5",
-            "Abre o .exe gerado em uma janela de console",
+            "Gera o .exe (se faltar) e abre em um console novo",
             sfx="compile",
         )
         self.action_clear_output = self._action(
@@ -452,7 +445,6 @@ class MainWindow(QMainWindow):
 
         menu_run = self.menuBar().addMenu("&Executar")
         menu_run.addAction(self.action_compile)
-        menu_run.addAction(self.action_generate)
         menu_run.addAction(self.action_run)
         menu_run.addAction(self.action_clear_output)
 
@@ -489,7 +481,7 @@ class MainWindow(QMainWindow):
         toolbar.addActions([self.action_new, self.action_open, self.action_save])
         toolbar.addSeparator()
         toolbar.addActions(
-            [self.action_compile, self.action_generate, self.action_run]
+            [self.action_compile, self.action_run]
         )
 
     def _build_status_bar(self) -> None:

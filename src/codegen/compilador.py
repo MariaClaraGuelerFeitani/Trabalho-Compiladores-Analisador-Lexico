@@ -25,6 +25,7 @@ TCC_AUSENCIA = (
 
 # Mensagens do console de execucao, sem acento: o console novo usa a
 # codepage OEM do sistema e acentos podem sair errados.
+MENSAGEM_SEPARADOR = "-" * 44
 MENSAGEM_FIM_SEM_ERROS = "O programa terminou sem erros."
 MENSAGEM_FIM_COM_ERRO = "O programa terminou com erro em tempo de execucao."
 MENSAGEM_FECHAR = "Pressione qualquer tecla para fechar o terminal."
@@ -109,6 +110,7 @@ def _comando_com_pausa(destino: Path) -> str:
     """
     return (
         f'"{destino}" & '
+        f"echo {MENSAGEM_SEPARADOR} & "
         "if errorlevel 1 "
         f"(echo {MENSAGEM_FIM_COM_ERRO}) else (echo {MENSAGEM_FIM_SEM_ERROS}) & "
         f"echo {MENSAGEM_FECHAR} & pause >nul"
@@ -119,6 +121,7 @@ __all__ = [
     "MENSAGEM_FECHAR",
     "MENSAGEM_FIM_COM_ERRO",
     "MENSAGEM_FIM_SEM_ERROS",
+    "MENSAGEM_SEPARADOR",
     "TCC_AUSENCIA",
     "compilar",
     "executar",

@@ -1,6 +1,6 @@
 """Geração de executável: traduz Guaxinim Pascal para C e liga com o TCC.
 
-Fluxo completo, acionado pelo menu "Executar -> Gerar executável (F9)":
+Fluxo completo, acionado pelo menu "Executar -> Executar (F5)":
 
 1. a análise léxica, sintática e semântica roda normalmente e precisa
    terminar sem erros;

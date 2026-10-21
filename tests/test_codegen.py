@@ -397,7 +397,8 @@ def test_comando_da_execucao_segura_o_console() -> None:
     assert linha.startswith('"C:\\meus programas\\ola.exe" & ')
     assert linha.count('"') == 2
     assert linha.endswith("pause >nul")
-    assert "if errorlevel 1 " in linha
+    # a linha de separacao vem antes do aviso de fim, nos dois ramos
+    assert f"echo {compilador.MENSAGEM_SEPARADOR} & if errorlevel 1 " in linha
     assert compilador.MENSAGEM_FIM_SEM_ERROS in linha
     assert compilador.MENSAGEM_FIM_COM_ERRO in linha
     assert compilador.MENSAGEM_FECHAR in linha
@@ -413,6 +414,7 @@ def test_cadeia_de_execucao_roda_no_cmd() -> None:
     processo = _rodar_cadeia_no_cmd(hostname)
     texto = processo.stdout.decode("utf-8", errors="replace")
     assert processo.returncode == 0, processo.stderr
+    assert compilador.MENSAGEM_SEPARADOR in texto
     assert compilador.MENSAGEM_FIM_SEM_ERROS in texto
     assert compilador.MENSAGEM_FECHAR in texto
 
@@ -425,6 +427,7 @@ def test_cadeia_de_execucao_avisa_erro_de_execucao(tmp_path: Path) -> None:
     assert ok, mensagem
     processo = _rodar_cadeia_no_cmd(destino)
     texto = processo.stdout.decode("utf-8", errors="replace")
+    assert compilador.MENSAGEM_SEPARADOR in texto
     assert compilador.MENSAGEM_FIM_COM_ERRO in texto
 
 

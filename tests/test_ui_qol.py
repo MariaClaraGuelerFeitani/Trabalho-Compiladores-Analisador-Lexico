@@ -513,6 +513,13 @@ def test_analise_alimenta_o_completar(janela: MainWindow) -> None:
 # --- Geracao de executavel pela janela ----------------------------------------------------
 
 
+def test_menu_executar_tem_acao_unica(janela: MainWindow) -> None:
+    # "Gerar executavel" virou parte do proprio Executar (F5); sem F9
+    assert not hasattr(janela, "action_generate")
+    assert janela.action_run.shortcut().toString() == "F5"
+    assert "Executar" in janela.action_run.text()
+
+
 @requer_tcc
 def test_generate_executable_produz_exe(janela: MainWindow, tmp_path) -> None:
     arquivo = tmp_path / "ola.pas"
