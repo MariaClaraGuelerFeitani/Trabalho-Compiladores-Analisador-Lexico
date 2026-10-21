@@ -39,6 +39,7 @@ from ..lexer.tokens import (
     CONST,
     CONTINUE,
     DIFERENTE_DE,
+    DIV,
     DIVISAO,
     DO,
     DOIS_PONTOS,
@@ -60,6 +61,7 @@ from ..lexer.tokens import (
     MAIOR_QUE,
     MENOR_OU_IGUAL_QUE,
     MENOR_QUE,
+    MOD,
     MULTIPLICACAO,
     NUM,
     OU,
@@ -761,7 +763,7 @@ class Tradutor:
         self._emitir("do {")
         self._entrar_bloco()
         self._profundidade_laco += 1
-        self._instrucao()
+        self._instrucoes()
         self._profundidade_laco -= 1
         self._sair_bloco()
         self._esperar(UNTIL)
@@ -1008,18 +1010,21 @@ class Tradutor:
     ) -> None:
         destino: list[str] = []
         formato = ""
-        for expr_c, tipo in argumentos:
+        for indice, (expr_c, tipo) in enumerate(argumentos):
+            # Separador entre diretrizes; o espaco no FINAL do formato faria o
+            # scanf bloquear esperando algo que nao seja branco depois do valor.
+            separador = "" if indice == 0 else " "
             if tipo == INTEIRO:
-                formato += "%d "
+                formato += f"{separador}%d"
                 destino.append(f"&{expr_c}")
             elif tipo == TIPO_REAL:
-                formato += "%lf "
+                formato += f"{separador}%lf"
                 destino.append(f"&{expr_c}")
             elif tipo == TIPO_CHAR:
                 formato += " %c"
                 destino.append(f"&{expr_c}")
             else:
-                formato += "%255s"
+                formato += f"{separador}%255s"
                 destino.append(expr_c)
         if formato:
             self._emitir(
@@ -1101,7 +1106,7 @@ class Tradutor:
 
     def _termo(self) -> tuple[str, str]:
         expr_c, tipo = self._unario()
-        while self._verificar(MULTIPLICACAO, DIVISAO):
+        while self._verificar(MULTIPLICACAO, DIVISAO, MOD, DIV):
             operador = self._avancar().tipo
             direita_c, tipo_direita = self._unario()
             if operador == DIVISAO:
@@ -1109,6 +1114,13 @@ class Tradutor:
                     f"((double)({expr_c}) / (double)({direita_c}))"
                 )
                 tipo = TIPO_REAL
+            elif operador == MOD:
+                expr_c = f"(({expr_c}) % ({direita_c}))"
+                tipo = INTEIRO
+            elif operador == DIV:
+                # `div` de Pascal: divisão inteira; em C, inteiros já dividem assim.
+                expr_c = f"(({expr_c}) / ({direita_c}))"
+                tipo = INTEIRO
             else:
                 expr_c = f"{expr_c} * {direita_c}"
                 tipo = self._tipo_aritmetico(tipo, tipo_direita)

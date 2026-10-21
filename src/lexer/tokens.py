@@ -54,6 +54,8 @@ ADICAO = "ADICAO"
 SUBTRACAO = "SUBTRACAO"
 MULTIPLICACAO = "MULTIPLICACAO"
 DIVISAO = "DIVISAO"
+MOD = "MOD"
+DIV = "DIV"
 ABRE_PARENTESES = "ABRE_PARENTESES"
 FECHA_PARENTESES = "FECHA_PARENTESES"
 ABRE_COLCHETES = "ABRE_COLCHETES"
@@ -89,6 +91,8 @@ PALAVRAS_RESERVADAS: dict[str, str] = {
     "type": TYPE,
     "record": RECORD,
     "enum": ENUM,
+    "mod": MOD,
+    "div": DIV,
 }
 
 SIMBOLOS: tuple[tuple[str, str], ...] = (

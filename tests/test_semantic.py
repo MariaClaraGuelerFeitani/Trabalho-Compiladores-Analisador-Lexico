@@ -257,6 +257,22 @@ def test_divisao_sempre_produz_real() -> None:
     assert any("real a integer" in m for m in erros)
 
 
+def test_mod_e_div_entre_inteiros() -> None:
+    sem_diagnosticos(
+        "programa P; var a, b: integer; begin a := 7 mod 3; b := 7 div 2; end."
+    )
+
+
+def test_mod_exige_operandos_inteiros() -> None:
+    fonte = "programa P; var x: real; y: integer; begin y := x mod 2; end."
+    assert any("espera operandos inteiros" in m for m in erros_semanticos(fonte))
+
+
+def test_div_exige_operandos_inteiros() -> None:
+    fonte = "programa P; var x: real; y: integer; begin y := 2 div x; end."
+    assert any("espera operandos inteiros" in m for m in erros_semanticos(fonte))
+
+
 def test_condicao_de_if_deve_ser_logica() -> None:
     fonte = "programa P; var x: integer; begin if x then x := 1; end."
     assert any("condição lógica" in m for m in erros_semanticos(fonte))

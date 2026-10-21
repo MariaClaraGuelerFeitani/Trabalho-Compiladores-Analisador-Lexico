@@ -1,8 +1,11 @@
 """Gramática da linguagem, em forma de dados.
 
-O texto do Anexo I é transcrito literalmente em `ANEXO_I`, e as extensões da
-parte 2 do trabalho (`for`, tipos `record` e enumeração) ficam em `EXTENSOES`.
-`GRAMATICA` é a união das duas e é o que o IDE exibe na aba *Gramática*.
+O texto do Anexo I é transcrito em `ANEXO_I`, com dois ajustes para casar com
+o Pascal padrão: `repeat` aceita uma lista de instruções e não uma única
+instrução, e `termo2` reconhece `mod` e `div` (aritmética inteira). As
+extensões da parte 2 do trabalho (`for`, tipos `record` e enumeração) ficam em
+`EXTENSOES`. `GRAMATICA` é a união das duas e é o que o IDE exibe na aba
+*Gramática*.
 
 Cada produção é um `Producao` com um não terminal e suas alternativas, escritas
 na notação do enunciado. `VAZIA` (`ε`) marca a alternativa vazia, e `LPAREN`
@@ -74,7 +77,7 @@ ANEXO_I: tuple[Producao, ...] = (
             "IF expr THEN inst",
             "IF expr THEN inst ELSE inst",
             "WHILE expr DO inst",
-            "REPEAT inst UNTIL expr ;",
+            "REPEAT instrucoes UNTIL expr ;",
             "BREAK ;",
             "CONTINUE ;",
             "bloco",
@@ -102,7 +105,16 @@ ANEXO_I: tuple[Producao, ...] = (
     Producao("exprOp", ("termo exprOp2",)),
     Producao("exprOp2", ("+ termo exprOp2", "- termo exprOp2", VAZIA)),
     Producao("termo", ("unario termo2",)),
-    Producao("termo2", ("* unario termo2", "/ unario termo2", VAZIA)),
+    Producao(
+        "termo2",
+        (
+            "* unario termo2",
+            "/ unario termo2",
+            "MOD unario termo2",
+            "DIV unario termo2",
+            VAZIA,
+        ),
+    ),
     Producao("unario", ("+ fator", "- fator", "fator")),
     Producao(
         "fator",

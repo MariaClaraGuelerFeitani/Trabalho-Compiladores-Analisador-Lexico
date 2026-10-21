@@ -185,6 +185,37 @@ def test_repeat_vira_do_while_negado() -> None:
     assert "} while (!((gx_i) > (3)));" in codigo
 
 
+def test_repeat_aceita_varias_instrucoes() -> None:
+    codigo = traduzir_fonte(
+        "programa P;\nvar i: integer;\nbegin\nrepeat\ni := i + 1;\ni := i + 2;\n"
+        "until i > 3;\nend.\n"
+    )
+    assert "do {" in codigo
+    assert "gx_i = gx_i + 1" in codigo
+    assert "gx_i = gx_i + 2" in codigo
+    assert "} while (!((gx_i) > (3)));" in codigo
+
+
+def test_mod_e_div_geram_operadores_de_c() -> None:
+    codigo = traduzir_fonte(
+        "programa P;\nvar a, b: integer;\nbegin\na := 7 mod 3;\nb := 7 div 2;\nend.\n"
+    )
+    assert "((7) % (3))" in codigo
+    assert "((7) / (2))" in codigo
+    # `div` é divisão inteira: nada de promover para double.
+    assert "(double)" not in codigo
+
+
+def test_readln_inteiro_sem_espaco_no_formato() -> None:
+    # Um espaço no fim do formato faria o scanf bloquear esperando algo que
+    # não seja branco, obrigando o usuário a digitar duas vezes no console.
+    codigo = traduzir_fonte(
+        "programa P;\nvar x: integer;\nbegin\nreadln(x);\nend.\n"
+    )
+    assert 'scanf("%d", &gx_x);' in codigo
+    assert '"%d "' not in codigo
+
+
 def test_while_e_if_geram_blocos_chaveados() -> None:
     codigo = traduzir_fonte(
         "programa W;\nvar i: integer;\n"
@@ -357,6 +388,19 @@ def test_caso_canonico_valido_compila_e_roda(tmp_path: Path) -> None:
     )
     assert processo.returncode == 0, processo.stderr
     assert processo.stdout == "totais0ponto7ponto\nfim\n"
+
+
+@requer_tcc
+def test_readln_lê_uma_linha_por_variavel(tmp_path: Path) -> None:
+    # Regressão: o formato "%d " com espaço no final fazia o scanf engolir o
+    # restante da linha e roubar a segunda leitura, exigindo dois inputs.
+    saida = _compilar_e_rodar(
+        tmp_path,
+        "programa Soma;\nvar a, b: integer;\nbegin\nreadln(a);\nreadln(b);\n"
+        "writeln(a + b);\nend.\n",
+        entrada="5\n7\n",
+    )
+    assert "12" in saida
 
 
 @requer_tcc

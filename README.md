@@ -84,19 +84,19 @@ python tests\smoke_ui.py
 
 | Arquivo | Testes | Cobre |
 | --- | --- | --- |
-| `tests/test_lexer.py` | 135 | palavras reservadas, simbolos, identificadores, numeros, literais, comentarios, erros e tabela de simbolos |
-| `tests/test_dfa.py` | 139 | invariantes do automato: determinismo, alcancabilidade, aceitacao e maximo casamento |
+| `tests/test_lexer.py` | 137 | palavras reservadas, simbolos, identificadores, numeros, literais, comentarios, erros e tabela de simbolos |
+| `tests/test_dfa.py` | 143 | invariantes do automato: determinismo, alcancabilidade, aceitacao e maximo casamento |
 | `tests/test_grammar.py` | 26 | transcricao do Anexo I, extensoes da parte 2 e consistencia terminal/token |
-| `tests/test_parser.py` | 144 | programas validos e invalidos, `for`, `record`, enumeracao, acesso a campo, chamada de funcao em expressao, `;` final facultativo, aviso de instrucao sem efeito e recuperacao |
-| `tests/test_semantic.py` | 101 | escopos e sombreamento, identificador nao declarado, redeclaracao, compatibilidade de tipos, operadores, condicoes, alias, enumeracao e registro, aridade e tipos de argumentos, retorno de funcao, `for`, constantes, avisos e os tres casos de teste em `.pas` |
+| `tests/test_parser.py` | 149 | programas validos e invalidos, `for`, `record`, enumeracao, `repeat` com lista de instrucoes, `mod`/`div`, acesso a campo, chamada de funcao em expressao, `;` final facultativo, aviso de instrucao sem efeito e recuperacao |
+| `tests/test_semantic.py` | 104 | escopos e sombreamento, identificador nao declarado, redeclaracao, compatibilidade de tipos, operadores (incluindo `mod`/`div` entre inteiros), condicoes, alias, enumeracao e registro, aridade e tipos de argumentos, retorno de funcao, `for`, constantes, avisos e os tres casos de teste em `.pas` |
 | `tests/test_highlighter.py` | 43 | realce por classe de token, cores do tema, preferencias, comentarios e integracao com a janela |
-| `tests/test_theme.py` | 107 | os 8 temas: registro, cores da paleta, realce e erro proprios, contraste minimo, escolha no dialogo, persistencia e fundo acompanhando a troca de tema |
+| `tests/test_theme.py` | 115 | os 8 temas: registro, cores da paleta, realce e erro proprios, contraste minimo, escolha no dialogo, persistencia e fundo acompanhando a troca de tema |
 | `tests/test_background.py` | 23 | imagem de fundo do editor: caminho, opacidade, pintura, ajuste que cobre a area e persistencia |
 | `tests/test_icon.py` | 7 | icone do executavel: arquivos presentes, tamanhos do `.ico`, transparencia, arte inteira no quadro e carga no Qt |
-| `tests/test_codegen.py` | 38 | tradutor Pascal->C (tipos, record, enumeracao, lacos, strings, E/S, funcoes), integracao real com o TCC embutido, incluindo o `valido.pas` canonico, e a cadeia do cmd que segura o console aberto com aviso e `pause` |
+| `tests/test_codegen.py` | 42 | tradutor Pascal->C (tipos, record, enumeracao, lacos, strings, `mod`/`div`, E/S sem espaco sobrando no `scanf`), integracao real com o TCC embutido, incluindo o `valido.pas` canonico e `readln` com entrada por pipe, e a cadeia do cmd que segura o console aberto com aviso e `pause` |
 | `tests/test_ui_qol.py` | 42 | menu Exibir, explorador, sons so no tema Resident Evil (e antes do dialogo), recentes, busca/substituicao, zoom, geometria, temas por pasta (e o fundo junto), abas, foco do editor, acao unica do Executar (F5) e geracao de executavel pela janela |
 
-Total: 813 testes.
+Total: 831 testes.
 
 O teste de fumaca abre a interface em modo `offscreen`, digita um programa e
 valida aba por aba (tokens, erros, avisos, simbolos, classes de tokens, DFA e
@@ -362,8 +362,11 @@ tools/
 - `write`, `writeln`, `read` e `readln` nascem declarados como procedimentos
   predefinidos variadicos, para que `writeln('oi', 1)` nao seja "nao declarado".
 - Unica promocao de tipos: `integer` em `real`; a divisao `/` produz sempre
-  `real`, como no Pascal. O tipo logico dos comparadores e interno: a linguagem
-  nao declara `boolean`.
+  `real`, como no Pascal. `mod` e `div` sao palavras reservadas e operam so
+  entre inteiros (`mod` vira `%` e `div` divisao inteira no C gerado). O tipo
+  logico dos comparadores e interno: a linguagem nao declara `boolean`.
+- `repeat` aceita uma lista de instrucoes, como no Pascal padrao, e nao apenas
+  uma; o `;` antes do `until` continua facultativo.
 - Variaveis declaradas e nao usadas geram aviso ao fechar o escopo; parametros
   nao geram.
 

@@ -7,8 +7,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.lexer.tokens import TOKEN_CLASSES  # noqa: E402
-from src.parser.grammar import (  # noqa: E402
+from src.lexer.tokens import TOKEN_CLASSES
+from src.parser.grammar import (
     ANEXO_I,
     DEFINICOES_DE_LEXEMA,
     EXTENSOES,
@@ -118,7 +118,8 @@ def test_anexo_i_mantem_as_dez_instrucoes() -> None:
         "IF expr THEN inst",
         "IF expr THEN inst ELSE inst",
         "WHILE expr DO inst",
-        "REPEAT inst UNTIL expr ;",
+        # Como no Pascal padrão: `repeat` aceita uma lista de instruções.
+        "REPEAT instrucoes UNTIL expr ;",
         "BREAK ;",
         "CONTINUE ;",
         "bloco",
@@ -190,7 +191,7 @@ def test_linhas_para_exibicao() -> None:
 
 def test_gramatica_nao_depende_de_estado_global_mutavel() -> None:
     antes = linhas_da_gramatica()
-    GRAMATICA[0].alternativas  # leitura não altera nada
+    assert GRAMATICA[0].alternativas  # leitura não altera nada
     assert linhas_da_gramatica() == antes
 
 

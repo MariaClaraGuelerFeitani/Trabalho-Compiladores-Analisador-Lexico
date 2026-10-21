@@ -8,8 +8,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.lexer import dfa  # noqa: E402
-from src.lexer.tokens import (  # noqa: E402
+from src.lexer import dfa
+from src.lexer.tokens import (
     ID,
     LITERAL,
     NUM,
@@ -276,6 +276,6 @@ def test_identificador_que_engole_palavra_reservada_com_prefixo_mais_longo() -> 
 
 
 def test_numero_de_estados_e_estavel() -> None:
-    assert len(dfa.ESTADOS) == 136
-    assert len(dfa.TRANSICOES) == 251
-    assert len(dfa.ACEITACAO) == 53
+    assert len(dfa.ESTADOS) == 141
+    assert len(dfa.TRANSICOES) == 261
+    assert len(dfa.ACEITACAO) == 55

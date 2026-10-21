@@ -29,7 +29,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..lexer.tokens import DIVISAO
+from ..lexer.tokens import DIV, DIVISAO, MOD
 from ..services.lexer_service import LexicalError, Token, Warning
 from . import tabela as tb
 from . import tipos as tp
@@ -538,6 +538,13 @@ class AnaliseSemantica:
             self._erro(
                 f"operandos incompatíveis em '{operador.lexema}': "
                 f"{tp.descrever(esquerda)} e {tp.descrever(direita)}",
+                operador,
+            )
+            return tp.DESCONHECIDO
+        if operador.tipo in (MOD, DIV) and resultado != tp.INTEIRO:
+            self._erro(
+                f"'{operador.lexema}' espera operandos inteiros, "
+                f"encontrado {tp.descrever(esquerda)} e {tp.descrever(direita)}",
                 operador,
             )
             return tp.DESCONHECIDO

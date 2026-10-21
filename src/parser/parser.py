@@ -39,6 +39,7 @@ from ..lexer.tokens import (
     CONST,
     CONTINUE,
     DIFERENTE_DE,
+    DIV,
     DIVISAO,
     DO,
     DOIS_PONTOS,
@@ -60,6 +61,7 @@ from ..lexer.tokens import (
     MAIOR_QUE,
     MENOR_OU_IGUAL_QUE,
     MENOR_QUE,
+    MOD,
     MULTIPLICACAO,
     NUM,
     OU,
@@ -136,6 +138,8 @@ DESCRICAO_DE_TOKEN = {
     SUBTRACAO: "'-'",
     MULTIPLICACAO: "'*'",
     DIVISAO: "'/'",
+    MOD: "'mod'",
+    DIV: "'div'",
     BEGIN: "'begin'",
     END: "'end'",
     IF: "'if'",
@@ -794,8 +798,9 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
 
     def _instrucao_repita(self) -> bool:
         self._avancar()
-        if not self._instrucao():
-            return False
+        # Lista de instruções como no Pascal padrão: o laço para em `until`
+        # (`UNTIL` já está em `_FIM_DE_BLOCO`) e o `;` antes dele é facultativo.
+        self._instrucoes()
         self._esperar(UNTIL, "'until'")
         token_condicao = self._token_atual()
         tipo_condicao = self._expr()
@@ -863,6 +868,9 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
         resultado = resultado_aritmetico(esquerda, direita)
         if resultado and operador is not None and operador.tipo == DIVISAO:
             return REAL
+        if operador is not None and operador.tipo in (MOD, DIV):
+            # `mod` e `div` só operam entre inteiros (Pascal padrão).
+            return resultado if resultado == INTEIRO else DESCONHECIDO
         return resultado
 
     def _expr(self) -> str:
@@ -901,7 +909,7 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
     def _termo(self) -> str:
         self._derivacao("termo")
         tipo = self._unario()
-        while self._verificar(MULTIPLICACAO, DIVISAO):
+        while self._verificar(MULTIPLICACAO, DIVISAO, MOD, DIV):
             operador = self._avancar()
             direita = self._unario()
             tipo = self._combinar_aritmetico(tipo, direita, operador)

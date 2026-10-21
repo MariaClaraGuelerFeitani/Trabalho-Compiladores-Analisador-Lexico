@@ -7,9 +7,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.lexer import PROGRAMA_EXTENSOES, Lexer  # noqa: E402
-from src.parser import Parser  # noqa: E402
-from src.parser.service import AnaliseService  # noqa: E402
+from src.lexer import PROGRAMA_EXTENSOES, Lexer
+from src.parser import Parser
+from src.parser.service import AnaliseService
 
 servico = AnaliseService()
 
@@ -52,6 +52,11 @@ def mensagens_de_aviso(fonte: str) -> list[str]:
         "programa P; begin if x > 1 then begin x := 2; end; end.",
         "programa P; begin while x < 10 do x := x + 1; end.",
         "programa P; begin repeat x := x - 1; until x = 0; end.",
+        "programa P; var a, b: integer; begin repeat a := 1; b := 2; until a = b; end.",
+        "programa P; var i: integer; begin repeat i := i + 1; i := i + 2; until i > 3; end.",
+        "programa P; begin x := 7 mod 3; end.",
+        "programa P; begin x := 7 div 2; end.",
+        "programa P; begin x := 1 + 2 * 3 mod 4; end.",
         "programa P; begin break; end.",
         "programa P; begin continue; end.",
         "programa P; var x: integer; begin x := 1; end.",

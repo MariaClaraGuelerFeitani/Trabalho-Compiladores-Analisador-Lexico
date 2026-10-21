@@ -7,11 +7,13 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.config import MAX_IDENTIFIER_LENGTH  # noqa: E402
-from src.lexer import Lexer  # noqa: E402
-from src.lexer import PROGRAMA_EXEMPLO  # noqa: E402
-from src.lexer.tokens import *  # noqa: E402,F403
-from src.services.lexer_service import AnalysisResult, LexerService  # noqa: E402
+from src.config import MAX_IDENTIFIER_LENGTH
+from src.lexer import (
+    PROGRAMA_EXEMPLO,
+    Lexer,
+)
+from src.lexer.tokens import *
+from src.services.lexer_service import AnalysisResult, LexerService
 
 
 @pytest.fixture
@@ -72,6 +74,8 @@ def test_todas_as_colecoes_do_resultado_sao_preenchidas(lexer: Lexer) -> None:
         ("continue", CONTINUE),
         ("ou", OU),
         ("e", E),
+        ("mod", MOD),
+        ("div", DIV),
     ],
 )
 def test_palavras_reservadas(lexer: Lexer, palavra: str, token: str) -> None:
