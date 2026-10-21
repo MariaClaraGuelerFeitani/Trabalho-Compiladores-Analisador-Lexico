@@ -100,7 +100,20 @@ def default_background_image_for(theme: str) -> str:
     """Imagem de fundo padrao associada a um tema (vazio quando nao houver)."""
     if theme == THEME_RESIDENT_EVIL and ADA_BACKGROUND_IMAGE.is_file():
         return str(ADA_BACKGROUND_IMAGE)
-    return ""
+    return default_background_image()
+
+
+def background_image_for_theme(theme: str, current: str) -> str:
+    """Novo fundo quando o tema muda.
+
+    Um fundo automatico (o padrao do projeto ou o padrao de outro tema,
+    como a imagem do Resident Evil) acompanha o tema escolhido; um fundo
+    removido (vazio) ou um arquivo particular do usuario e preservado.
+    """
+    automaticos = {default_background_image_for(item) for item in THEME_CHOICES}
+    if current in automaticos:
+        return default_background_image_for(theme)
+    return current
 
 
 def default_settings_path() -> Path:

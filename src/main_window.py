@@ -53,6 +53,7 @@ from .settings import (
     THEME_CHOICES,
     THEME_RESIDENT_EVIL,
     Settings,
+    background_image_for_theme,
     load_settings,
     save_settings,
 )
@@ -726,6 +727,9 @@ class MainWindow(QMainWindow):
         if tema and tema in THEME_CHOICES and tema != self.settings.theme:
             configuracoes = self.settings.copy()
             configuracoes.theme = tema
+            configuracoes.background_image_path = background_image_for_theme(
+                tema, configuracoes.background_image_path
+            )
             self.commit_settings(configuracoes)
             self._log(f"Tema do projeto aplicado: {tema}.")
 
@@ -1026,5 +1030,6 @@ class MainWindow(QMainWindow):
                 if not self.save_file():
                     event.ignore()
                     return
+        self._maybe_stop_bg_sfx()
         self._salvar_geometria()
         event.accept()

@@ -34,6 +34,7 @@ from src.settings import (
     THEME_DARK,
     THEME_RESIDENT_EVIL,
     Settings,
+    default_background_image_for,
     load_settings,
 )
 
@@ -431,6 +432,31 @@ def test_tema_da_pasta_e_aplicado_ao_abrir(janela: MainWindow, tmp_path) -> None
 
     janela.abrir_caminho(str(arquivo))
     assert janela.settings.theme == THEME_DARK
+
+
+def test_tema_da_pasta_tambem_troca_o_fundo(janela: MainWindow, tmp_path) -> None:
+    ada = default_background_image_for(THEME_RESIDENT_EVIL)
+    if not ada:
+        pytest.skip("imagem do Resident Evil nao encontrada")
+    pasta = tmp_path / "re"
+    pasta.mkdir()
+    arquivo = pasta / "z.pas"
+    arquivo.write_text(PROGRAMA, encoding="utf-8")
+
+    configuracoes = janela.settings.copy()
+    configuracoes.theme = THEME_DARK
+    janela.commit_settings(configuracoes)
+    janela.settings.project_themes[str(pasta)] = THEME_RESIDENT_EVIL
+
+    janela.abrir_caminho(str(arquivo))
+    assert janela.settings.theme == THEME_RESIDENT_EVIL
+    assert janela.settings.background_image_path == ada
+    assert janela._aba_atual().editor.has_background_image()
+
+    # devolve o tema global para nao deixar o som de fundo do RE tocando
+    configuracoes = janela.settings.copy()
+    configuracoes.theme = THEME_DARK
+    janela.commit_settings(configuracoes)
 
 
 # --- Abas ------------------------------------------------------------------------------

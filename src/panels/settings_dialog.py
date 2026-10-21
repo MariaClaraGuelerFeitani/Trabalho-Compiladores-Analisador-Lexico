@@ -46,6 +46,7 @@ from ..settings import (
     THEME_LABELS,
     THEME_SYSTEM,
     Settings,
+    background_image_for_theme,
     default_background_image_for,
 )
 from ..theme import build_palette, spec_for
@@ -360,9 +361,13 @@ class SettingsDialog(QDialog):
         self.highlight_preview.setText(html)
 
     def _on_theme_changed(self) -> None:
-        padrao = default_background_image_for(self._current_theme())
-        if padrao:
-            self.background_edit.setText(padrao)
+        # o fundo automatico acompanha o tema (o Resident Evil traz a imagem
+        # dele, os demais voltam ao padrao do projeto); escolha propria fica
+        self.background_edit.setText(
+            background_image_for_theme(
+                self._current_theme(), self.background_edit.text().strip()
+            )
+        )
         self._emit()
 
     def _connect(self) -> None:

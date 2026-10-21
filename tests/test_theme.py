@@ -13,11 +13,15 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from PySide6.QtGui import QColor, QPalette  # noqa: E402
-from PySide6.QtWidgets import QApplication  # noqa: E402
+from PySide6.QtGui import QColor, QPalette
+from PySide6.QtWidgets import QApplication
 
-from src.editor.code_editor import ERROR_ON_DARK, ERROR_ON_LIGHT, error_color  # noqa: E402
-from src.editor.highlighter import (  # noqa: E402
+from src.editor.code_editor import (
+    ERROR_ON_DARK,
+    ERROR_ON_LIGHT,
+    error_color,
+)
+from src.editor.highlighter import (
     CATEGORIES,
     CATEGORY_COMMENT,
     CATEGORY_KEYWORD,
@@ -26,7 +30,7 @@ from src.editor.highlighter import (  # noqa: E402
     default_colors,
     resolve_colors,
 )
-from src.settings import (  # noqa: E402
+from src.settings import (
     THEME_CHOICES,
     THEME_CONTRAST,
     THEME_DARK,
@@ -40,10 +44,13 @@ from src.settings import (  # noqa: E402
     THEME_SOLARIZED_LIGHT,
     THEME_SYSTEM,
     Settings,
+    background_image_for_theme,
+    default_background_image,
+    default_background_image_for,
     load_settings,
     save_settings,
 )
-from src.theme import (  # noqa: E402
+from src.theme import (
     DARK,
     FOREST,
     LIGHT,
@@ -395,7 +402,7 @@ def test_apply_theme_muda_a_paleta_do_app(app: QApplication, tema: str) -> None:
 
 @pytest.mark.parametrize("tema", sorted(TEMAS_NOVOS))
 def test_linha_atual_acompanha_o_tema(app: QApplication, tema: str) -> None:
-    from src.editor.code_editor import current_line_color  # noqa: PLC0415
+    from src.editor.code_editor import current_line_color
 
     apply_theme(app, tema)
     paleta = QPalette(app.palette())
@@ -429,7 +436,7 @@ def test_tema_sobrevive_ao_round_trip(tema: str, tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("tema", sorted(TEMAS_NOVOS))
 def test_previa_do_dialogo_muda_com_o_tema(app: QApplication, tema: str) -> None:
-    from src.panels.settings_dialog import SettingsDialog  # noqa: PLC0415
+    from src.panels.settings_dialog import SettingsDialog
 
     dialog = SettingsDialog(Settings(theme=THEME_LIGHT), lambda _s: None)
     dialog.theme_combo.setCurrentIndex(dialog.theme_combo.findData(tema))
@@ -440,7 +447,7 @@ def test_previa_do_dialogo_muda_com_o_tema(app: QApplication, tema: str) -> None
 
 @pytest.mark.parametrize("tema", sorted(TEMAS_NOVOS))
 def test_dialogo_comeca_com_a_cor_do_tema(app: QApplication, tema: str) -> None:
-    from src.panels.settings_dialog import SettingsDialog  # noqa: PLC0415
+    from src.panels.settings_dialog import SettingsDialog
 
     dialog = SettingsDialog(Settings(theme=tema), lambda _s: None)
     spec = spec_for(tema)
@@ -451,7 +458,7 @@ def test_dialogo_comeca_com_a_cor_do_tema(app: QApplication, tema: str) -> None:
     dialog.close()
 
 def test_dialogo_troca_de_tema_respeita_a_cor_manual(app: QApplication) -> None:
-    from src.panels.settings_dialog import SettingsDialog  # noqa: PLC0415
+    from src.panels.settings_dialog import SettingsDialog
 
     dialog = SettingsDialog(Settings(theme=THEME_LIGHT), lambda _s: None)
     dialog.highlight_auto[CATEGORY_COMMENT].setChecked(False)
@@ -468,7 +475,7 @@ def test_dialogo_troca_de_tema_respeita_a_cor_manual(app: QApplication) -> None:
     dialog.close()
 
 def test_dialogo_troca_de_tema_repoe_a_semente_livre(app: QApplication) -> None:
-    from src.panels.settings_dialog import SettingsDialog  # noqa: PLC0415
+    from src.panels.settings_dialog import SettingsDialog
 
     dialog = SettingsDialog(Settings(theme=THEME_LIGHT), lambda _s: None)
     dialog.theme_combo.setCurrentIndex(dialog.theme_combo.findData(THEME_FOREST))
@@ -480,6 +487,61 @@ def test_dialogo_troca_de_tema_repoe_a_semente_livre(app: QApplication) -> None:
     assert dialog.current_line_button.color() != dialog.highlight_preview.palette().color(
         QPalette.ColorRole.Base
     )
+    dialog.close()
+
+def test_fundo_acompanha_a_troca_de_tema() -> None:
+    empacotado = default_background_image()
+    ada = default_background_image_for(THEME_RESIDENT_EVIL)
+    if not (empacotado and ada):
+        pytest.skip("imagens de fundo padrao nao encontradas")
+    # fundos automaticos (padrao do projeto e o do Resident Evil) seguem o tema
+    assert background_image_for_theme(THEME_RESIDENT_EVIL, empacotado) == ada
+    assert background_image_for_theme(THEME_LIGHT, ada) == empacotado
+    # fundo removido pelo usuario continua removido
+    assert background_image_for_theme(THEME_DARK, "") == ""
+    # escolha particular do usuario atravessa qualquer troca de tema
+    particular = "C:/minhas imagens/fundo.png"
+    assert background_image_for_theme(THEME_RESIDENT_EVIL, particular) == particular
+    assert background_image_for_theme(THEME_OCEAN, particular) == particular
+
+def test_dialogo_devolve_o_fundo_padrao_ao_sair_do_resident_evil(
+    app: QApplication,
+) -> None:
+    from src.panels.settings_dialog import SettingsDialog
+
+    ada = default_background_image_for(THEME_RESIDENT_EVIL)
+    if not ada:
+        pytest.skip("imagem do Resident Evil nao encontrada")
+    dialog = SettingsDialog(
+        Settings(theme=THEME_RESIDENT_EVIL, background_image_path=ada),
+        lambda _s: None,
+    )
+
+    dialog.theme_combo.setCurrentIndex(dialog.theme_combo.findData(THEME_LIGHT))
+    assert dialog.settings().background_image_path == default_background_image()
+
+    dialog.theme_combo.setCurrentIndex(
+        dialog.theme_combo.findData(THEME_RESIDENT_EVIL)
+    )
+    assert dialog.settings().background_image_path == ada
+    dialog.close()
+
+def test_dialogo_preserva_fundo_escolhido_a_mao(app: QApplication) -> None:
+    from src.panels.settings_dialog import SettingsDialog
+
+    particular = "C:/fundo-da-familia.png"
+    dialog = SettingsDialog(
+        Settings(theme=THEME_LIGHT, background_image_path=particular),
+        lambda _s: None,
+    )
+
+    dialog.theme_combo.setCurrentIndex(
+        dialog.theme_combo.findData(THEME_RESIDENT_EVIL)
+    )
+    assert dialog.settings().background_image_path == particular
+
+    dialog.theme_combo.setCurrentIndex(dialog.theme_combo.findData(THEME_DARK))
+    assert dialog.settings().background_image_path == particular
     dialog.close()
 
 def test_tema_desconhecido_gravado_cai_no_padrao(tmp_path: Path) -> None:

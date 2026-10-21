@@ -90,13 +90,13 @@ python tests\smoke_ui.py
 | `tests/test_parser.py` | 144 | programas validos e invalidos, `for`, `record`, enumeracao, acesso a campo, chamada de funcao em expressao, `;` final facultativo, aviso de instrucao sem efeito e recuperacao |
 | `tests/test_semantic.py` | 101 | escopos e sombreamento, identificador nao declarado, redeclaracao, compatibilidade de tipos, operadores, condicoes, alias, enumeracao e registro, aridade e tipos de argumentos, retorno de funcao, `for`, constantes, avisos e os tres casos de teste em `.pas` |
 | `tests/test_highlighter.py` | 43 | realce por classe de token, cores do tema, preferencias, comentarios e integracao com a janela |
-| `tests/test_theme.py` | 104 | os 8 temas: registro, cores da paleta, realce e erro proprios, contraste minimo, escolha no dialogo e persistencia |
+| `tests/test_theme.py` | 107 | os 8 temas: registro, cores da paleta, realce e erro proprios, contraste minimo, escolha no dialogo, persistencia e fundo acompanhando a troca de tema |
 | `tests/test_background.py` | 23 | imagem de fundo do editor: caminho, opacidade, pintura, ajuste que cobre a area e persistencia |
 | `tests/test_icon.py` | 7 | icone do executavel: arquivos presentes, tamanhos do `.ico`, transparencia, arte inteira no quadro e carga no Qt |
 | `tests/test_codegen.py` | 38 | tradutor Pascal->C (tipos, record, enumeracao, lacos, strings, E/S, funcoes), integracao real com o TCC embutido, incluindo o `valido.pas` canonico, e a cadeia do cmd que segura o console aberto com aviso e `pause` |
-| `tests/test_ui_qol.py` | 41 | menu Exibir, explorador, sons so no tema Resident Evil (e antes do dialogo), recentes, busca/substituicao, zoom, geometria, temas por pasta, abas, foco do editor, acao unica do Executar (F5) e geracao de executavel pela janela |
+| `tests/test_ui_qol.py` | 42 | menu Exibir, explorador, sons so no tema Resident Evil (e antes do dialogo), recentes, busca/substituicao, zoom, geometria, temas por pasta (e o fundo junto), abas, foco do editor, acao unica do Executar (F5) e geracao de executavel pela janela |
 
-Total: 809 testes.
+Total: 813 testes.
 
 O teste de fumaca abre a interface em modo `offscreen`, digita um programa e
 valida aba por aba (tokens, erros, avisos, simbolos, classes de tokens, DFA e
@@ -153,7 +153,10 @@ relatorio nao consegue divergir do que o programa faz.
   numero, literal e comentario (em italico); identificadores e simbolos ficam com a
   cor normal do tema
 - Imagem de fundo no editor (`img/background.jpg` por padrao), ajustada para cobrir
-  a area de codigo mantendo a proporcao e com opacidade ajustavel (padrao 15%)
+  a area de codigo mantendo a proporcao e com opacidade ajustavel (padrao 15%);
+  o fundo automatico acompanha a troca de tema (o tema Resident Evil usa a imagem
+  dele e os demais voltam ao padrao), enquanto uma imagem escolhida a mao e
+  preservada
 - Explorador de arquivos e pastas a esquerda, no estilo VSCode: raiz e a ultima
   pasta usada (persistida), botoes de abrir pasta e atualizar, subpastas com
   carga preguicosa, arquivos com ponto ignorados, duplo clique abre no editor e
