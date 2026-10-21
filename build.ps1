@@ -11,6 +11,10 @@ function Falhar([string]$mensagem) {
 
 $exe = "dist\Guaxinim.exe"
 
+if (-not (Test-Path -LiteralPath "tools\tcc\tcc.exe")) {
+    Falhar "tools\tcc\tcc.exe ausente: copie tcc.exe, include/ e lib/ do TCC 0.9.27 win64 para tools\tcc"
+}
+
 if (Test-Path -LiteralPath $exe) {
     try {
         $fluxo = [System.IO.File]::Open($exe, "Open", "ReadWrite", "None")

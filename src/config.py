@@ -13,6 +13,8 @@ SOURCE_FILE_FILTER = f"Fonte {LANGUAGE_NAME} (*.{SOURCE_EXTENSION});;Todos os ar
 
 ANALYSIS_DEBOUNCE_MS = 250
 
+RECENT_LIMIT = 5
+
 MAX_IDENTIFIER_LENGTH = 15
 
 EDITOR_FONT_FAMILY = "Consolas"
@@ -34,6 +36,8 @@ NEW_FILE_TEMPLATE = (
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 IMAGE_DIR = PROJECT_ROOT / "img"
 SFX_DIR = PROJECT_ROOT / "sfx"
+TCC_DIR = PROJECT_ROOT / "tools" / "tcc"
+TCC_EXE = TCC_DIR / "tcc.exe"
 BUNDLED_BACKGROUND_IMAGE = IMAGE_DIR / "background.jpg"
 ADA_BACKGROUND_IMAGE = IMAGE_DIR / "ada-wong2.webp"
 APP_ICON_FILE = IMAGE_DIR / "racoon.png"
@@ -66,3 +70,8 @@ def sfx_button_path() -> str:
 
 def sfx_background_path() -> str:
     return str(SFX_BACKGROUND) if SFX_BACKGROUND.is_file() else ""
+
+
+def tcc_path() -> str:
+    """Caminho do `tcc.exe` embutido em `tools/tcc`, vazio quando ausente."""
+    return str(TCC_EXE) if TCC_EXE.is_file() else ""

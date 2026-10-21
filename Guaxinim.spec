@@ -10,6 +10,7 @@ a = Analysis(
         ("sfx/botao.mpeg", "sfx"),
         ("sfx/compilar.mpeg", "sfx"),
         ("sfx/background.mpeg", "sfx"),
+        ("tools/tcc", "tools/tcc"),
     ],
     hiddenimports=[],
     hookspath=[],

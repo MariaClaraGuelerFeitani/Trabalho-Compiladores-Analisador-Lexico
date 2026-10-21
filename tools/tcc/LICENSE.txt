@@ -1,0 +1,34 @@
+Compilador C incorporado - Tiny C Compiler (TCC) 0.9.27
+========================================================
+
+Este diretorio guarda a distribuicao oficial win64 do TCC 0.9.27,
+usada pelo menu "Executar -> Gerar executavel (F9)" para ligar o C
+gerado pelo tradutor do Guaxinim Pascal.
+
+Conteudo original da distribuicao tcc-0.9.27-win64-bin.zip:
+
+  tcc.exe             compilador/ligador x86-64 de linha de comando
+  i386-win32-tcc.exe  variante para alvo i386 (mantida por completude)
+  libtcc.dll          biblioteca de API do TCC (nao usada pelo IDE)
+  lib/                bibliotecas C e win32 usadas na ligacao
+  include/            cabecalhos da biblioteca padrao e do Windows
+  libtcc/             cabecalhos da API libtcc
+  doc/                documentacao (tcc-win32.txt, tcc-doc.html)
+  examples/           exemplos em C vindos com o TCC
+
+Origem:  https://download.savannah.gnu.org/releases/tinycc/
+Pacote:  tcc-0.9.27-win64-bin.zip (489.586 bytes)
+Projeto: https://bellard.org/tcc/
+
+Licenca
+-------
+O TCC e distribuido sob a GNU Lesser General Public License (LGPL),
+versao 2.1 ou superior, conforme declarado no site oficial do projeto.
+O codigo-fonte correspondente esta disponivel em:
+https://download.savannah.gnu.org/releases/tinycc/
+https://repo.or.cz/tinycc.git
+
+O Guaxinim nao modifica o TCC; ele e invocado como processo externo
+(tcc.exe -o saida.exe entrada.c). A redistribuicao deste binario junto
+com o IDE atende ao requisito de disponibilizar a licenca e o endereco
+do codigo-fonte.
