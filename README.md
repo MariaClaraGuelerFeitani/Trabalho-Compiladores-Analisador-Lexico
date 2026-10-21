@@ -15,6 +15,16 @@ verificacao de identificadores nao declarados, de redeclaracoes, de
 compatibilidade de tipos em atribuicao, aritmetica, comparacoes e chamadas, com
 erros e avisos na mesma aba e no mesmo sublinhado das fases antigas.
 
+A quarta entrega transforma o IDE em compilador de verdade: o menu
+**Executar > Gerar executavel (F9)** traduz o programa para uma fonte C
+autossuficiente (`src/codegen/`) e la o com o Tiny C Compiler embutido em
+`tools/tcc/`, produzindo um `.exe` nativo do Windows ao lado do `.pas`;
+**Executar > Executar executavel (F5)** abre o binario em um console novo,
+onde `read`/`readln` funcionam interativamente. A interface tambem ganhou
+abas de editor, explorador de arquivos, busca e substituicao (Ctrl+F/Ctrl+H),
+arquivos recentes, zoom pela roda do mouse, layout persistido entre sessoes e
+tema proprio por pasta.
+
 ## Requisitos
 
 - Python 3.12 ou superior
@@ -82,12 +92,16 @@ python tests\smoke_ui.py
 | `tests/test_theme.py` | 104 | os 8 temas: registro, cores da paleta, realce e erro proprios, contraste minimo, escolha no dialogo e persistencia |
 | `tests/test_background.py` | 23 | imagem de fundo do editor: caminho, opacidade, pintura, ajuste que cobre a area e persistencia |
 | `tests/test_icon.py` | 7 | icone do executavel: arquivos presentes, tamanhos do `.ico`, transparencia, arte inteira no quadro e carga no Qt |
+| `tests/test_codegen.py` | 34 | tradutor Pascal->C (tipos, record, enumeracao, lacos, strings, E/S, funcoes) e integracao real com o TCC embutido, incluindo o `valido.pas` canonico |
+| `tests/test_ui_qol.py` | 39 | menu Exibir, explorador, sons so no tema Resident Evil (e antes do dialogo), recentes, busca/substituicao, zoom, geometria, temas por pasta, abas e geracao de executavel pela janela |
 
-Total: 730 testes.
+Total: 803 testes.
 
 O teste de fumaca abre a interface em modo `offscreen`, digita um programa e
 valida aba por aba (tokens, erros, avisos, simbolos, classes de tokens, DFA e
-gramatica), alem das preferencias (tema, fonte, cores, realce) e da persistencia em disco.
+gramatica), alem das preferencias (tema, fonte, cores, realce), da persistencia em disco,
+das abas de editor, do explorador, da barra de busca e da traducao + compilacao
+com o TCC embutido.
 
 ## Relatorio
 
@@ -114,37 +128,87 @@ relatorio nao consegue divergir do que o programa faz.
 
 | Atalho | Ação |
 | --- | --- |
-| `Ctrl+N` | Novo programa |
+| `Ctrl+N` | Novo programa (abre em uma aba nova) |
 | `Ctrl+O` | Abrir programa |
 | `Ctrl+S` | Salvar |
 | `Ctrl+Shift+S` | Salvar como |
 | `Ctrl+B` | Compilar (análise léxica, sintática e semântica imediatas) |
+| `F9` | Gerar executável (traduz para C e compila com o TCC embutido) |
+| `F5` | Executar o `.exe` em um console novo (gera antes, se faltar) |
+| `Ctrl+F` | Localizar no editor |
+| `Ctrl+H` | Localizar e substituir |
 | `Ctrl+L` | Limpar a aba Saída |
 | `Ctrl+,` | Preferências (tema, fonte, cores, realce e fundo) |
-| `Ctrl++` / `Ctrl+-` / `Ctrl+0` | Aumentar / diminuir / restaurar a fonte |
+| `Ctrl++` / `Ctrl+-` / `Ctrl+0` | Aumentar / diminuir / restaurar a fonte (também pela roda do mouse com `Ctrl`) |
 
 ## Funcionalidades da interface
 
 - Editor com numero da linha corrente e sublinhado vermelho para erros lexico,
   sintaticos e semanticos, com analise ao vivo durante a digitacao (debounce de
   250 ms)
+- Abas de editor: cada arquivo aberto vira uma aba (o botao `+` abre outra,
+  fechar aba alterada pergunta se quer salvar; fechar a ultima cria outra no
+  lugar) e a janela lembra das abas modificadas ao sair
 - Realce sintatico por classe de token: palavra reservada (em negrito), tipo primario,
   numero, literal e comentario (em italico); identificadores e simbolos ficam com a
   cor normal do tema
 - Imagem de fundo no editor (`img/background.jpg` por padrao), ajustada para cobrir
-  a area de codigo mantendo a proporcao e com opacidade ajustavel
+  a area de codigo mantendo a proporcao e com opacidade ajustavel (padrao 15%)
+- Explorador de arquivos e pastas a esquerda, no estilo VSCode: raiz e a ultima
+  pasta usada (persistida), botoes de abrir pasta e atualizar, subpastas com
+  carga preguicosa, arquivos com ponto ignorados, duplo clique abre no editor e
+  o arquivo aberto fica em negrito
+- Barra de localizar e substituir acima do editor (`Ctrl+F` / `Ctrl+H`): proxima
+  e anterior com volta ao inicio, diferenciar maiusculas, substituir a atual,
+  substituir todas com contagem e realce amarelo das ocorrencias
+- Arquivo > Recentes: os 5 ultimos arquivos abertos/salvos, em ordem de uso,
+  gravados nas preferencias
+- Menu **Exibir**: mostra/esconde cada painel (Explorador, Paineis de saida,
+  Tokens e automato) e restaura o layout padrao; a posicao da janela e dos
+  paineis persiste entre sessoes
+- Ferramentas > **Fixar tema para esta pasta**: grava o tema atual como tema da
+  pasta do arquivo salvo e o re-aplica ao abrir qualquer arquivo de la;
+  "Remover tema da pasta" volta a pasta ao tema global
+- Autocompletar no editor com `Ctrl+Space` (e sozinho apos 2 letras): palavras
+  reservadas mais os simbolos declarados no programa atual
+- Sons de botao, compilacao e musica de fundo **apenas no tema Resident Evil**,
+  tocando no momento em que o dialogo abre
 - Icone proprio (`img/racoon.png`) na janela, na barra de tarefas e no executavel;
   no Windows o `AppUserModelID` evita que o Explorador mostre o icone do Python
-- Abas: Tokens, Erros, Avisos, Tabela de Simbolos, Classes de Tokens,
+- Abas de saida: Tokens, Erros, Avisos, Tabela de Simbolos, Classes de Tokens,
   DFA - Estados, DFA - Transicoes e Gramatica
-- Nove temas em **Preferencias > Aparencia**: Sistema, Claro, Escuro, Oceano, Sepia,
-  Alto contraste, Floresta e Solarized (claro e escuro). Cada tema traz a paleta da
-  interface, as cores do realce e a cor do erro; o tema do sistema segue a
-  paleta do desktop. Uma preferencia de cor sempre vence a cor do tema.
+- Dez temas em **Preferencias > Aparencia**: Sistema, Claro, Escuro, Oceano, Sepia,
+  Alto contraste, Floresta, Solarized (claro e escuro) e Resident Evil. Cada tema
+  traz a paleta da interface, as cores do realce e a cor do erro; o tema do
+  sistema segue a paleta do desktop. Uma preferencia de cor sempre vence a cor
+  do tema.
 - Preferencias em JSON (tema, fonte, cores do editor e do
-  terminal, cores do realce, imagem de fundo) com visualizacao ao vivo
+  terminal, cores do realce, imagem de fundo, recentes, tema por pasta e
+  geometria da janela) com visualizacao ao vivo
 - Numero maximo de identificadores (15 caracteres), comentarios em `//`, `{ }` e `(* *)`,
   palavras reservadas em minusculas - tratados pelo analisador em `src/lexer/`
+
+## Geracao de executavel
+
+O fluxo completo mora em `src/codegen/` e roda apenas quando lexico, sintaxe e
+semantico terminam sem erros:
+
+1. `tradutor.py` refaz a descida recursiva sobre os tokens (a mesma gramatica do
+   parser) e emite uma fonte C autossuficiente: `record` vira `struct`,
+   enumeracao vira `enum`, `string` e `char[256]` com `strcpy`/`strcmp`/`+` via
+   helpers do preludio, `write`/`writeln` viram `printf` por tipo, `read`/`readln`
+   viram `scanf` (com descarte de linha), `for` avalia os limites uma unica vez
+   em temporarios e o resultado de funcao e uma variavel local devolvida por
+   `return`. Identificadores ganham o prefixo `gx_` para nao colidir com C;
+   construcoes que o C nao reproduz (como indexar algo que nao e `string`)
+   param com `ErroDeTraducao` e mensagem em portugues, nunca codigo quebrado.
+2. `compilador.py` grava o `.c` ao lado do `.pas` pedido e invoca o
+   `tools/tcc/tcc.exe` (Tiny C Compiler 0.9.27 win64, embutido no repositorio e
+   no executavel do IDE; `tools/tcc/LICENSE.txt` registra origem e licenca
+   LGPL). O `.exe` sai no mesmo diretorio do fonte.
+3. `Executar > Executar executavel (F5)` abre o binario com
+   `CREATE_NEW_CONSOLE`, entao o programa roda interativo: `readln` le do
+   teclado do proprio console, como um programa Pascal nativo.
 
 ## Analisadores
 
@@ -173,14 +237,20 @@ src/
   settings.py            Preferencias do usuario (JSON)
   theme.py               Paletas dos 8 temas (com realce e cor de erro) e
                          restauracao do tema do sistema
-  main_window.py         Janela principal, menus, atalhos, paineis de saida
+  main_window.py         Janela principal, menus, atalhos, abas, paineis de saida
+  codegen/
+    tradutor.py          Tradutor Guaxinim Pascal -> C (descida recursiva sobre os tokens)
+    compilador.py        Driver do TCC embutido e execucao do .exe em console novo
+    preludio.py          Helpers C emitidos antes de todo codigo gerado
   editor/
-    code_editor.py       Editor com numero de linha e sublinhado de erro
+    code_editor.py       Editor com numero de linha, sublinhado de erro, busca e autocompletar
     highlighter.py       Realce sintatico por classe de token
   panels/
     data_table.py        Tabela somente leitura
     console_view.py      Aba Saida
     settings_dialog.py   Dialogo de preferencias
+    file_explorer.py     Explorador de arquivos/pastas lateral
+    find_bar.py          Barra de localizar e substituir
   services/
     file_service.py      Abrir/salvar arquivos
     analysis_controller.py  Analise com debounce de 250 ms
@@ -197,6 +267,8 @@ tests/
   test_semantic.py       Testes do analisador semantico
   test_highlighter.py    Testes do realce sintatico
   test_background.py     Testes da imagem de fundo do editor
+  test_codegen.py        Testes do tradutor Pascal->C e da compilacao com TCC
+  test_ui_qol.py         Testes das melhorias de interface (abas, explorador, busca...)
 img/
   background.jpg         Imagem de fundo do editor (padrão)
   racoon.png             Ícone da janela, barra de tarefas e executável
@@ -209,6 +281,8 @@ relatorio/
 tools/
   make_icon.py           Gera img/racoon.ico a partir de img/racoon.png
   gerar_tabela_tokens.py Gera a tabela de tokens do relatorio a partir do codigo
+  tcc/                   Tiny C Compiler 0.9.27 win64 embutido (tcc.exe, lib/, include/;
+                         LICENSE.txt com origem e licenca) usado pelo F9
 ```
 
 ## Mapa dos requisitos
@@ -238,6 +312,9 @@ tools/
 | 3 Atribuicao a funcao so no proprio corpo | `abrir_subprograma` (entrada propria) e `acesso(como_alvo=True)` |
 | 3 Laço `for` com variavel inteira e limites inteiros | `verificar_controle_de_for`, `verificar_limite_de_for` |
 | 3 Erros com linha/coluna nas tres fases | `LexicalError`/`Warning` reutilizados, prefixos `sintaxe: ` e `semantica: ` |
+| 4 Gerar executavel (`F9`) | `src/codegen/tradutor.py` (Pascal->C), `src/codegen/compilador.py` (TCC) e `tools/tcc/` |
+| 4 Executar em console novo (`F5`) | `executar()` em `src/codegen/compilador.py` (`CREATE_NEW_CONSOLE`) |
+| 4 Abas, explorador, busca/substituicao, recentes, layout e tema por pasta | `src/main_window.py`, `src/panels/file_explorer.py`, `src/panels/find_bar.py` |
 
 ### Decisoes de projeto
 

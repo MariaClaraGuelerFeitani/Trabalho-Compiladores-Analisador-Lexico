@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import get_type_hints
+from typing import get_args, get_origin, get_type_hints
 
 from PySide6.QtCore import QStandardPaths
 
@@ -14,6 +14,7 @@ from .config import (
     COLOR_CONSOLE_FOREGROUND,
     EDITOR_FONT_FAMILY,
     EDITOR_FONT_SIZE,
+    RECENT_LIMIT,
     default_background_image,
 )
 
@@ -79,9 +80,14 @@ class Settings:
     literal_color: str = ""
     comment_color: str = ""
     background_image_path: str = field(default_factory=default_background_image)
-    background_image_opacity: int = 10
+    background_image_opacity: int = 15
     console_background: str = COLOR_CONSOLE_BACKGROUND
     console_foreground: str = COLOR_CONSOLE_FOREGROUND
+    window_geometry: str = ""
+    window_state: str = ""
+    explorer_root: str = ""
+    recent_files: list[str] = field(default_factory=list)
+    project_themes: dict[str, str] = field(default_factory=dict)
 
     def copy(self) -> Settings:
         return Settings(**asdict(self))
@@ -129,6 +135,18 @@ def load_settings(path: Path | None = None) -> Settings:
         elif expected is str:
             if not isinstance(value, str):
                 continue
+        elif get_origin(expected) is list and get_args(expected) == (str,):
+            if not isinstance(value, list):
+                continue
+            value = [item for item in value if isinstance(item, str)][:RECENT_LIMIT]
+        elif get_origin(expected) is dict and get_args(expected) == (str, str):
+            if not isinstance(value, dict):
+                continue
+            value = {
+                chave: item
+                for chave, item in value.items()
+                if isinstance(chave, str) and isinstance(item, str)
+            }
         else:
             continue
         values[key] = value

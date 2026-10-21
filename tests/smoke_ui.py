@@ -323,6 +323,63 @@ def main() -> int:
     settings_path.unlink()
     check(load_settings(settings_path) == Settings(), "arquivo ausente cai no padrao")
 
+    # --- Abas, explorador, busca, recentes, layout e geracao de executavel ---
+    from src.app import build_lexer  # noqa: PLC0415
+    from src.codegen import compilar, tcc_disponivel, traduzir  # noqa: PLC0415
+
+    check(window.editor_tabs.count() == 1, "janela abriu com uma aba de editor")
+    window.new_file()
+    check(window.editor_tabs.count() == 2, "Novo abriu uma segunda aba")
+    window._fechar_aba(window.editor_tabs.count() - 1)
+    check(
+        window.editor_tabs.count() == 1,
+        "fechar a ultima aba criou outra no lugar",
+    )
+
+    check(window.settings.background_image_opacity == 15, "opacidade do fundo comeca em 15")
+    check(window.action_restore_layout is not None, "menu Exibir tem restaurar layout")
+    check(not window.find_bar.isVisible(), "barra de busca comeca oculta")
+    window.mostrar_busca()
+    check(window.find_bar.isVisible(), "mostrar_busca abriu a barra")
+    window._fechar_busca()
+    check(not window.find_bar.isVisible(), "fechar_busca escondeu a barra")
+
+    check(window.dock_explorer.isVisible(), "explorador de arquivos visivel")
+    raiz_fumaca = Path(tmp_dir.name) / "raiz"
+    raiz_fumaca.mkdir()
+    (raiz_fumaca / "arq.pas").write_text("programa A;\nbegin\nend.\n", encoding="utf-8")
+    (raiz_fumaca / ".escondido").write_text("x", encoding="utf-8")
+    window._definir_raiz_do_explorador(str(raiz_fumaca))
+    nomes = [
+        window.explorer.arvore.topLevelItem(i).text(0)
+        for i in range(window.explorer.arvore.topLevelItemCount())
+    ]
+    check(nomes == ["arq.pas"], f"explorador ignora arquivos com ponto ({nomes})")
+
+    window._registrar_recente(str(raiz_fumaca / "arq.pas"))
+    check(
+        window.settings.recent_files == [str(raiz_fumaca / "arq.pas")],
+        "arquivo recente registrado",
+    )
+
+    window._salvar_geometria()
+    check(bool(window.settings.window_geometry), "geometria da janela pronta para persistir")
+
+    window.editor.setPlainText(
+        "programa Fumaca;\nvar x: integer;\nbegin\nx := 1;\nwriteln('valor: ', x);\nend.\n"
+    )
+    resultado_real = build_lexer().analyze(window.editor.toPlainText())
+    check(not resultado_real.all_errors, "programa de fumaca analisa sem erros")
+    codigo_c = traduzir(resultado_real.tokens)
+    check("int main(void)" in codigo_c, "tradutor gerou um main em C")
+    if tcc_disponivel():
+        destino_fumaca = Path(tmp_dir.name) / "fumaca.exe"
+        ok_fumaca, msg_fumaca = compilar(codigo_c, destino_fumaca)
+        check(ok_fumaca, f"TCC gerou o executavel ({msg_fumaca.splitlines()[0]})")
+        check(destino_fumaca.is_file(), "arquivo .exe existe no disco")
+    else:
+        print("aviso: TCC ausente em tools/tcc; compilacao real pulada")
+
     window.apply_settings(Settings())
     window.close()
     print("\nTodos os testes de fumaça passaram.")
