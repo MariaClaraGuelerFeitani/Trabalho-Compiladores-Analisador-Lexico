@@ -18,12 +18,13 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
 
 from src.app import build_lexer
 from src.codegen import tcc_disponivel
-from src.editor.code_editor import DEFAULT_BACKGROUND_OPACITY
+from src.editor.code_editor import DEFAULT_BACKGROUND_OPACITY, CodeEditor
 from src.main_window import MainWindow
 from src.panels.file_explorer import FileExplorer
 from src.services.lexer_service import Symbol
@@ -478,6 +479,15 @@ def test_sempre_restama_pelo_menos_uma_aba(janela: MainWindow) -> None:
 
 
 # --- Completar automatico ---------------------------------------------------------------
+
+
+def test_editor_aceita_foco(janela: MainWindow) -> None:
+    # Regressao: o focusPolicy do popup do autocompletar repassa ao editor
+    # (o popup tem o editor como focus proxy); setar NoFocus no popup deixava
+    # o editor incapaz de receber foco e o teclado nao chegava a ele.
+    editor_novo = CodeEditor()
+    assert editor_novo.focusPolicy() == Qt.FocusPolicy.StrongFocus
+    assert janela.editor.focusPolicy() == Qt.FocusPolicy.StrongFocus
 
 
 def test_palavras_de_completar_incluem_reservadas_e_simbolos(

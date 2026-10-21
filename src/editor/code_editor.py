@@ -311,8 +311,10 @@ class CodeEditor(QPlainTextEdit):
         self._completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
         self._completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
         self._completer.setWrapAround(True)
-        popup = self._completer.popup()
-        popup.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        # Nao mexer no focusPolicy do popup: o QCompleter define o proprio editor
+        # como focus proxy do popup, e nesse build do Qt repassar um setFocusPolicy
+        # ao popup zera o foco do editor (o teclado deixa de chegar a ele).
+        # O popup ja nasce com NoFocus e nao rouba o foco.
         self._completer.activated.connect(self._inserir_completacao)
 
     def set_completer_words(self, words: list[str]) -> None:
@@ -320,7 +322,10 @@ class CodeEditor(QPlainTextEdit):
         if self._completer is None:
             return
         unicos = sorted({palavra for palavra in words if palavra})
-        self._completer.setModel(QStringListModel(unicos))
+        # Guardamos o modelo: sem referencia em Python o QCompleter ficaria com um
+        # ponteiro morto apos a coleta de lixo.
+        self._completer_model = QStringListModel(unicos)
+        self._completer.setModel(self._completer_model)
         if self._completer.popup().isVisible():
             self._completer.popup().hide()
 
