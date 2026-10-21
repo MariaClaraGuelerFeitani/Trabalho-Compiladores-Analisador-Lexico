@@ -16,10 +16,10 @@ compatibilidade de tipos em atribuicao, aritmetica, comparacoes e chamadas, com
 erros e avisos na mesma aba e no mesmo sublinhado das fases antigas.
 
 A quarta entrega transforma o IDE em compilador de verdade: o menu
-**Executar > Executar (F5)** traduz o programa para uma fonte C
-autossuficiente (`src/codegen/`), la o com o Tiny C Compiler embutido em
-`tools/tcc/` — produzindo um `.exe` nativo do Windows ao lado do `.pas`,
-quando ainda nao existe — e abre o binario em um console novo, onde
+**Executar > Executar (F5)** salva o programa, o traduz para uma fonte C
+autossuficiente (`src/codegen/`), la com o Tiny C Compiler embutido em
+`tools/tcc/` — sempre regravando o `.exe` nativo do Windows ao lado do
+`.pas`, mesmo que um velho exista — e abre o binario em um console novo, onde
 `read`/`readln` funcionam interativamente; o console avisa se o
 programa terminou sem erros e espera uma tecla antes de fechar. A interface tambem ganhou
 abas de editor, explorador de arquivos, busca e substituicao (Ctrl+F/Ctrl+H),
@@ -134,7 +134,7 @@ relatorio nao consegue divergir do que o programa faz.
 | `Ctrl+S` | Salvar |
 | `Ctrl+Shift+S` | Salvar como |
 | `Ctrl+B` | Compilar (análise léxica, sintática e semântica imediatas) |
-| `F5` | Executar: gera o `.exe` com o TCC embutido (se faltar) e abre em um console novo, com aviso de fim e espera por uma tecla |
+| `F5` | Executar: salva, gera o `.exe` de novo com o TCC embutido e abre em um console novo, com aviso de fim e espera por uma tecla |
 | `Ctrl+F` | Localizar no editor |
 | `Ctrl+H` | Localizar e substituir |
 | `Ctrl+L` | Limpar a aba Saída |
@@ -206,13 +206,15 @@ semantico terminam sem erros:
    `tools/tcc/tcc.exe` (Tiny C Compiler 0.9.27 win64, embutido no repositorio e
    no executavel do IDE; `tools/tcc/LICENSE.txt` registra origem e licenca
    LGPL). O `.exe` sai no mesmo diretorio do fonte.
-3. `Executar > Executar (F5)` roda os passos 1 e 2 quando o `.exe` ainda
-   nao existe e em seguida abre o binario com `CREATE_NEW_CONSOLE`, entao o
+3. `Executar > Executar (F5)` salva o `.pas` (se houver mudancas) e roda os
+   passos 1 e 2 sempre — mesmo que um `.exe` velho ja exista — e em seguida
+   abre o binario com `CREATE_NEW_CONSOLE`, entao o
    programa roda interativo: `readln` le do teclado do proprio console,
    como um programa Pascal nativo. O console e aberto por um `cmd` que,
-   quando o programa termina, mostra uma linha de separacao e avisa se ele
-   saiu sem erros (ou com erro em tempo de execucao), ficando aberto ate
-   uma tecla ser pressionada, para dar tempo de ler a saida.
+   quando o programa termina, mostra uma linha de separacao (48 tracos) e
+   avisa se ele saiu sem erros (ou com erro em tempo de execucao), ficando
+   aberto ate uma tecla ser pressionada, para dar tempo de ler a saida.
+   Se a analise ou a compilacao falhar, nada e executado.
 
 ## Analisadores
 

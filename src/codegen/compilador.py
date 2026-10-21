@@ -25,7 +25,7 @@ TCC_AUSENCIA = (
 
 # Mensagens do console de execucao, sem acento: o console novo usa a
 # codepage OEM do sistema e acentos podem sair errados.
-MENSAGEM_SEPARADOR = "-" * 44
+MENSAGEM_SEPARADOR = "-" * 48
 MENSAGEM_FIM_SEM_ERROS = "O programa terminou sem erros."
 MENSAGEM_FIM_COM_ERRO = "O programa terminou com erro em tempo de execucao."
 MENSAGEM_FECHAR = "Pressione qualquer tecla para fechar o terminal."

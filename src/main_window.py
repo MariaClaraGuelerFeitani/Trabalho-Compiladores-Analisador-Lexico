@@ -387,7 +387,7 @@ class MainWindow(QMainWindow):
             "&Executar",
             self.run_executable,
             "F5",
-            "Gera o .exe (se faltar) e abre em um console novo",
+            "Salva, gera o .exe de novo e abre em um console novo",
             sfx="compile",
         )
         self.action_clear_output = self._action(
@@ -885,35 +885,35 @@ class MainWindow(QMainWindow):
             return self.save_file()
         return True
 
-    def generate_executable(self) -> None:
+    def generate_executable(self) -> bool:
+        """Salva, traduz para C e gera o `.exe`; devolve se o binario saiu."""
         if not self._garantir_arquivo_salvo():
-            return
+            return False
         resultado = self.analysis.analyze_now(self.editor.toPlainText())
         self._log(self._summarize(resultado))
         if resultado.has_any_errors:
             self.output_tabs.setCurrentWidget(self.errors_table)
-            return
+            return False
         destino = Path(self._current_path or "").with_suffix(".exe")
         try:
             codigo = traduzir(resultado.tokens)
         except ErroDeTraducao as erro:
             self._log(f"Geracao de C interrompida: {erro}")
-            return
+            return False
         ok, mensagem = compilar(codigo, destino)
         self._log(mensagem)
         if ok:
             self.output_tabs.setCurrentWidget(self.output_console)
+        return ok
 
     def run_executable(self) -> None:
+        """Salva, gera o `.exe` de novo (mesmo com um velho ao lado) e roda."""
+        if not self.generate_executable():
+            return
         aba = self._aba_atual()
         if aba is None or not aba.caminho:
-            self._log("Salve o programa antes de executar.")
             return
         destino = Path(aba.caminho).with_suffix(".exe")
-        if not destino.is_file():
-            self.generate_executable()
-        if not destino.is_file():
-            return
         if executar(destino):
             self._log(f"Executando: {destino}")
         else:

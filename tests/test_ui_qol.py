@@ -543,22 +543,34 @@ def test_generate_executable_para_com_erro_semantico(
     assert not arquivo.with_suffix(".exe").is_file()
 
 
-def test_executar_sem_exe_gera_antes(janela: MainWindow, tmp_path, monkeypatch) -> None:
+def test_executar_sempre_gera_de_novo(janela: MainWindow, tmp_path, monkeypatch) -> None:
     arquivo = tmp_path / "rodar.pas"
     arquivo.write_text(PROGRAMA, encoding="utf-8")
     janela.abrir_caminho(str(arquivo))
-    assert not arquivo.with_suffix(".exe").is_file()
+    arquivo.with_suffix(".exe").write_bytes(b"exe velho de uma versao anterior")
 
     chamados: list[str] = []
-    monkeypatch.setattr(janela, "generate_executable", lambda: chamados.append("gerou"))
-    monkeypatch.setattr("src.main_window.executar", lambda _destino: True)
+    monkeypatch.setattr(
+        janela, "generate_executable", lambda: chamados.append("gerou") or True
+    )
+    monkeypatch.setattr(
+        "src.main_window.executar",
+        lambda _destino: chamados.append("rodou") or True,
+    )
     janela.run_executable()
-    assert chamados == ["gerou"]  # gera antes de tentar rodar
+    assert chamados == ["gerou", "rodou"]  # regera, mesmo com .exe ja existente
 
 
-def test_executar_sem_arquivo_salvo_avisa(janela: MainWindow) -> None:
-    # a aba atual e um arquivo novo sem caminho: nada para executar
-    registros: list[str] = []
-    janela._log = registros.append  # type: ignore[method-assign]
+def test_executar_pede_para_salvar_arquivo_novo(janela: MainWindow, monkeypatch) -> None:
+    # a aba atual e um arquivo novo sem caminho: executar salva antes (e, se o
+    # salvamento for cancelado, nao gera nem roda nada)
+    chamados: list[str] = []
+    monkeypatch.setattr(
+        janela, "save_file_as", lambda: chamados.append("pediu salvar") or False
+    )
+    monkeypatch.setattr(
+        "src.main_window.executar",
+        lambda _destino: chamados.append("rodou") or True,
+    )
     janela.run_executable()
-    assert registros == ["Salve o programa antes de executar."]
+    assert chamados == ["pediu salvar"]

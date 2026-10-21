@@ -398,6 +398,7 @@ def test_comando_da_execucao_segura_o_console() -> None:
     assert linha.count('"') == 2
     assert linha.endswith("pause >nul")
     # a linha de separacao vem antes do aviso de fim, nos dois ramos
+    assert compilador.MENSAGEM_SEPARADOR == "-" * 48
     assert f"echo {compilador.MENSAGEM_SEPARADOR} & if errorlevel 1 " in linha
     assert compilador.MENSAGEM_FIM_SEM_ERROS in linha
     assert compilador.MENSAGEM_FIM_COM_ERRO in linha
