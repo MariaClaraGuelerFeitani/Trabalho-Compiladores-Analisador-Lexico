@@ -20,7 +20,8 @@ A quarta entrega transforma o IDE em compilador de verdade: o menu
 autossuficiente (`src/codegen/`) e la o com o Tiny C Compiler embutido em
 `tools/tcc/`, produzindo um `.exe` nativo do Windows ao lado do `.pas`;
 **Executar > Executar executavel (F5)** abre o binario em um console novo,
-onde `read`/`readln` funcionam interativamente. A interface tambem ganhou
+onde `read`/`readln` funcionam interativamente; o console avisa se o
+programa terminou sem erros e espera uma tecla antes de fechar. A interface tambem ganhou
 abas de editor, explorador de arquivos, busca e substituicao (Ctrl+F/Ctrl+H),
 arquivos recentes, zoom pela roda do mouse, layout persistido entre sessoes e
 tema proprio por pasta.
@@ -92,10 +93,10 @@ python tests\smoke_ui.py
 | `tests/test_theme.py` | 104 | os 8 temas: registro, cores da paleta, realce e erro proprios, contraste minimo, escolha no dialogo e persistencia |
 | `tests/test_background.py` | 23 | imagem de fundo do editor: caminho, opacidade, pintura, ajuste que cobre a area e persistencia |
 | `tests/test_icon.py` | 7 | icone do executavel: arquivos presentes, tamanhos do `.ico`, transparencia, arte inteira no quadro e carga no Qt |
-| `tests/test_codegen.py` | 34 | tradutor Pascal->C (tipos, record, enumeracao, lacos, strings, E/S, funcoes) e integracao real com o TCC embutido, incluindo o `valido.pas` canonico |
-| `tests/test_ui_qol.py` | 39 | menu Exibir, explorador, sons so no tema Resident Evil (e antes do dialogo), recentes, busca/substituicao, zoom, geometria, temas por pasta, abas e geracao de executavel pela janela |
+| `tests/test_codegen.py` | 38 | tradutor Pascal->C (tipos, record, enumeracao, lacos, strings, E/S, funcoes), integracao real com o TCC embutido, incluindo o `valido.pas` canonico, e a cadeia do cmd que segura o console aberto com aviso e `pause` |
+| `tests/test_ui_qol.py` | 40 | menu Exibir, explorador, sons so no tema Resident Evil (e antes do dialogo), recentes, busca/substituicao, zoom, geometria, temas por pasta, abas, foco do editor e geracao de executavel pela janela |
 
-Total: 803 testes.
+Total: 808 testes.
 
 O teste de fumaca abre a interface em modo `offscreen`, digita um programa e
 valida aba por aba (tokens, erros, avisos, simbolos, classes de tokens, DFA e
@@ -134,7 +135,7 @@ relatorio nao consegue divergir do que o programa faz.
 | `Ctrl+Shift+S` | Salvar como |
 | `Ctrl+B` | Compilar (análise léxica, sintática e semântica imediatas) |
 | `F9` | Gerar executável (traduz para C e compila com o TCC embutido) |
-| `F5` | Executar o `.exe` em um console novo (gera antes, se faltar) |
+| `F5` | Executar o `.exe` em um console novo (gera antes, se faltar; o console espera uma tecla no fim) |
 | `Ctrl+F` | Localizar no editor |
 | `Ctrl+H` | Localizar e substituir |
 | `Ctrl+L` | Limpar a aba Saída |
@@ -208,7 +209,10 @@ semantico terminam sem erros:
    LGPL). O `.exe` sai no mesmo diretorio do fonte.
 3. `Executar > Executar executavel (F5)` abre o binario com
    `CREATE_NEW_CONSOLE`, entao o programa roda interativo: `readln` le do
-   teclado do proprio console, como um programa Pascal nativo.
+   teclado do proprio console, como um programa Pascal nativo. O console e
+   aberto por um `cmd` que, quando o programa termina, mostra se ele saiu
+   sem erros (ou com erro em tempo de execucao) e fica aberto ate uma
+   tecla ser pressionada, para dar tempo de ler a saida.
 
 ## Analisadores
 
@@ -313,7 +317,7 @@ tools/
 | 3 Laço `for` com variavel inteira e limites inteiros | `verificar_controle_de_for`, `verificar_limite_de_for` |
 | 3 Erros com linha/coluna nas tres fases | `LexicalError`/`Warning` reutilizados, prefixos `sintaxe: ` e `semantica: ` |
 | 4 Gerar executavel (`F9`) | `src/codegen/tradutor.py` (Pascal->C), `src/codegen/compilador.py` (TCC) e `tools/tcc/` |
-| 4 Executar em console novo (`F5`) | `executar()` em `src/codegen/compilador.py` (`CREATE_NEW_CONSOLE`) |
+| 4 Executar em console novo (`F5`) | `executar()` em `src/codegen/compilador.py` (`CREATE_NEW_CONSOLE`, cadeia do `cmd` com aviso de fim e `pause`) |
 | 4 Abas, explorador, busca/substituicao, recentes, layout e tema por pasta | `src/main_window.py`, `src/panels/file_explorer.py`, `src/panels/find_bar.py` |
 
 ### Decisoes de projeto

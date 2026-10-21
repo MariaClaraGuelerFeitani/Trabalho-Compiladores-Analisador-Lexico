@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src.app import build_lexer
 from src.codegen import (
     ErroDeTraducao,
+    compilador,
     compilar,
     literal_para_c,
     mangle,
@@ -34,6 +35,10 @@ VALIDO = RAIZ / "relatorio" / "casos_de_teste" / "valido.pas"
 
 requer_tcc = pytest.mark.skipif(
     not tcc_disponivel(), reason="TCC embutido ausente em tools/tcc"
+)
+
+requer_windows = pytest.mark.skipif(
+    sys.platform != "win32", reason="a cadeia com pause roda no cmd do Windows"
 )
 
 
@@ -363,9 +368,65 @@ def test_erro_do_tcc_vira_mensagem_completa(tmp_path: Path) -> None:
 
 
 def test_compilar_sem_tcc_avisa(tmp_path: Path, monkeypatch) -> None:
-    from src.codegen import compilador
-
     monkeypatch.setattr(compilador, "tcc_path", lambda: "")
     ok, mensagem = compilador.compilar("int main(void){return 0;}", tmp_path / "x.exe")
     assert not ok
     assert "TCC nao encontrado" in mensagem
+
+
+# --- Execução em console com pausa --------------------------------------------
+
+
+def _rodar_cadeia_no_cmd(exe: Path) -> subprocess.CompletedProcess:
+    """Roda a cadeia real do `executar` por pipe; o `pause` devolve no fim do stdin."""
+    comspec = os.environ.get("ComSpec", "cmd.exe")
+    linha = f'{comspec} /c "{compilador._comando_com_pausa(exe)}"'
+    processo = subprocess.run(
+        linha,
+        capture_output=True,
+        stdin=subprocess.DEVNULL,
+        timeout=60,
+        check=False,
+    )
+    return processo
+
+
+def test_comando_da_execucao_segura_o_console() -> None:
+    linha = compilador._comando_com_pausa(Path(r"C:\meus programas\ola.exe"))
+    # o cmd /c remove uma aspa de cada ponta e sobra o caminho entre aspas
+    assert linha.startswith('"C:\\meus programas\\ola.exe" & ')
+    assert linha.count('"') == 2
+    assert linha.endswith("pause >nul")
+    assert "if errorlevel 1 " in linha
+    assert compilador.MENSAGEM_FIM_SEM_ERROS in linha
+    assert compilador.MENSAGEM_FIM_COM_ERRO in linha
+    assert compilador.MENSAGEM_FECHAR in linha
+
+
+@requer_windows
+def test_cadeia_de_execucao_roda_no_cmd() -> None:
+    hostname = (
+        Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "hostname.exe"
+    )
+    if not hostname.is_file():
+        pytest.skip("hostname.exe ausente")
+    processo = _rodar_cadeia_no_cmd(hostname)
+    texto = processo.stdout.decode("utf-8", errors="replace")
+    assert processo.returncode == 0, processo.stderr
+    assert compilador.MENSAGEM_FIM_SEM_ERROS in texto
+    assert compilador.MENSAGEM_FECHAR in texto
+
+
+@requer_windows
+@requer_tcc
+def test_cadeia_de_execucao_avisa_erro_de_execucao(tmp_path: Path) -> None:
+    destino = tmp_path / "sai_com_3.exe"
+    ok, mensagem = compilador.compilar("int main(void){return 3;}", destino)
+    assert ok, mensagem
+    processo = _rodar_cadeia_no_cmd(destino)
+    texto = processo.stdout.decode("utf-8", errors="replace")
+    assert compilador.MENSAGEM_FIM_COM_ERRO in texto
+
+
+def test_executar_com_arquivo_inexistente(tmp_path: Path) -> None:
+    assert compilador.executar(tmp_path / "nao_existe.exe") is False
