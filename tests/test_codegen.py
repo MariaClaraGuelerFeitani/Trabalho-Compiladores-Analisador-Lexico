@@ -8,8 +8,10 @@ real e rodam o binário, comparando a saída.
 from __future__ import annotations
 
 import os
+import queue
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -444,6 +446,56 @@ def test_hipotenusa_com_sqrt_sqr_e_formato_compila_e_roda(tmp_path: Path) -> Non
         entrada="3\n4\n",
     )
     assert "Cateto A: Cateto B: Hipotenusa:  5.00" in saida
+
+
+def test_main_desliga_o_buffer_de_saida() -> None:
+    # No terminal embutido o stdout e um pipe e o buffer do C la e total: sem
+    # _IONBF, `write('Digite: ')` antes de um `readln` so saia do buffer quando
+    # o programa terminava, ignorando a ordem de execucao.
+    codigo = traduzir_fonte("programa P; begin writeln('oi'); end.")
+    assert "\tsetvbuf(stdout, NULL, _IONBF, 0);" in codigo
+
+
+@requer_tcc
+def test_write_chega_antes_do_readln_por_pipe(tmp_path: Path) -> None:
+    # Regressao do terminal embutido: roda o exe com stdin/stdout em pipe (sem
+    # enviar nada) e espera o prompt chegar antes da primeira tecla.
+    codigo = traduzir_fonte(
+        "programa P;\nvar n: integer;\nbegin\n"
+        "write('Digite: ');\nreadln(n);\nwriteln('n = ', n);\nend.\n"
+    )
+    destino = tmp_path / "prompt.exe"
+    ok, mensagem = compilar(codigo, destino)
+    assert ok, mensagem
+
+    processo = subprocess.Popen(  # pipe como o do TerminalView
+        [str(destino)],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    try:
+        chegou: queue.Queue[bytes] = queue.Queue()
+
+        def _ler() -> None:
+            assert processo.stdout is not None
+            chegou.put(processo.stdout.read(1))
+
+        threading.Thread(target=_ler, daemon=True).start()
+        try:
+            byte = chegou.get(timeout=5)
+        except queue.Empty:
+            pytest.fail("nenhuma saida chegou antes da entrada: stdout bufferizado")
+        assert byte == b"D"  # primeiro byte de "Digite: "
+
+        assert processo.stdin is not None
+        processo.stdin.write(b"7\n")
+        processo.stdin.flush()
+        resto = processo.communicate(timeout=15)[0]
+        assert b"n = 7" in byte + resto
+    finally:
+        processo.kill()
+        processo.wait(timeout=10)
 
 
 @requer_tcc

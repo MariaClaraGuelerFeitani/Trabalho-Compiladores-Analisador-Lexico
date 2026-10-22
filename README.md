@@ -96,10 +96,10 @@ python tests\smoke_ui.py
 | `tests/test_theme.py` | 115 | os 8 temas: registro, cores da paleta, realce e erro proprios, contraste minimo, escolha no dialogo, persistencia e fundo acompanhando a troca de tema |
 | `tests/test_background.py` | 23 | imagem de fundo do editor: caminho, opacidade, pintura, ajuste que cobre a area e persistencia |
 | `tests/test_icon.py` | 7 | icone do executavel: arquivos presentes, tamanhos do `.ico`, transparencia, arte inteira no quadro e carga no Qt |
-| `tests/test_codegen.py` | 46 | tradutor Pascal->C (tipos, record, enumeracao, lacos, strings, `mod`/`div`, `sqrt`/`sqr`, formatacao de `write`, E/S sem espaco sobrando no `scanf`), integracao real com o TCC embutido, incluindo o `valido.pas` canonico, `readln` com entrada por pipe e o programa `Hipotenusa` completo, e a cadeia do cmd que segura o console aberto com aviso e `pause` |
-| `tests/test_ui_qol.py` | 46 | menu Exibir, explorador, sons so no tema Resident Evil (e antes do dialogo), recentes, busca/substituicao, zoom, geometria, temas por pasta (e o fundo junto), abas, foco do editor, split Executar F5 (terminal embutido, com teclado e acentos) / F9 (console novo) e geracao de executavel pela janela |
+| `tests/test_codegen.py` | 48 | tradutor Pascal->C (tipos, record, enumeracao, lacos, strings, `mod`/`div`, `sqrt`/`sqr`, formatacao de `write`, saida sem buffer para pipe, E/S sem espaco sobrando no `scanf`), integracao real com o TCC embutido, incluindo o `valido.pas` canonico, `readln` com entrada por pipe, o programa `Hipotenusa` completo e o prompt chegando antes da entrada, e a cadeia do cmd que segura o console aberto com aviso e `pause` |
+| `tests/test_ui_qol.py` | 46 | menu Exibir, explorador, sons so no tema Resident Evil (e antes do dialogo), recentes, busca/substituicao, zoom, geometria, temas por pasta (e o fundo junto), abas, foco do editor, split Executar F5 (terminal embutido, com prompt na hora, teclado e acentos) / F9 (console novo) e geracao de executavel pela janela |
 
-Total: 850 testes.
+Total: 852 testes.
 
 O teste de fumaca abre a interface em modo `offscreen`, digita um programa e
 valida aba por aba (tokens, erros, avisos, simbolos, classes de tokens, DFA e
@@ -222,6 +222,10 @@ semantico terminam sem erros:
    stdin e stdout sao pipes lidos e escritos em UTF-8 pelo proprio Qt, entao
    `readln` aceita e `writeln` emite palavras acentuadas sem passar pela
    codepage do CMD, e a linha digitada no painel chega inteira ao programa.
+   O `main` gerado comeca com `setvbuf(stdout, NULL, _IONBF, 0)`: em pipe o
+   buffer do C e total, e sem isso o `write('Nome: ')` antes de um `readln`
+   so sairia quando o programa terminasse, fora de ordem — com a saida sem
+   buffer o prompt aparece na hora, antes da tecla, como no console novo.
    `Executar (F9)` segue o mesmo fluxo, mas abre o binario com
    `CREATE_NEW_CONSOLE`: o programa roda interativo no console novo do
    Windows, e um `cmd` guarda a tela — quando o programa termina, mostra uma

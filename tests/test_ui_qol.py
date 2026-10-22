@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -649,6 +650,13 @@ def test_terminal_embutido_rodando_programa_real(
     assert terminal._processo is not None
     processo = terminal._processo
     assert processo.waitForStarted(10000)
+    # O prompt tem que chegar ANTES da primeira tecla: em pipe o stdout do C
+    # e totalmente bufferizado, e so a saida sem buffer (`setvbuf _IONBF`)
+    # respeita a ordem de execucao no terminal embutido.
+    limite = time.monotonic() + 10
+    while "a: " not in terminal.toPlainText():
+        assert time.monotonic() < limite, "prompt nao chegou no terminal"
+        processo.waitForReadyRead(50)
     for caractere in "5\n7\n":
         tecla = Qt.Key.Key_Return if caractere == "\n" else ord(caractere)
         terminal.keyPressEvent(_tecla(tecla, caractere))

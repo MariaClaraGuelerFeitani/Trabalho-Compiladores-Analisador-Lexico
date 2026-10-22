@@ -220,6 +220,12 @@ class Tradutor:
             linhas.extend(corpo)
         linhas.append("")
         linhas.append("int main(void) {")
+        # No terminal embutido o stdout e um pipe e, no Windows, o buffer do
+        # C nesse caso e total: sem _IONBF o `write('Nome: ')` antes de um
+        # `readln` ficava guardado ate o programa terminar, ignorando a ordem
+        # de execucao. Com a saida sem buffer o texto sai na hora, igual ao
+        # console novo do F9.
+        linhas.append("\tsetvbuf(stdout, NULL, _IONBF, 0);")
         linhas.extend(self._saida)
         linhas.append("\treturn 0;")
         linhas.append("}")
