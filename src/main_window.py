@@ -43,6 +43,7 @@ from .panels.data_table import DataTable
 from .panels.file_explorer import FileExplorer
 from .panels.find_bar import FindBar
 from .panels.settings_dialog import SettingsDialog
+from .panels.terminal_view import TerminalView
 from .parser.grammar import linhas_da_gramatica
 from .services.analysis_controller import AnalysisController
 from .services.file_service import UNSAVED_TITLE, FileService
@@ -302,6 +303,7 @@ class MainWindow(QMainWindow):
         )
 
         self.output_console = ConsoleView()
+        self.terminal = TerminalView()
 
         self.errors_table = DataTable(COLUMNS_ERRORS)
         self.warnings_table = DataTable(COLUMNS_WARNINGS)
@@ -315,6 +317,7 @@ class MainWindow(QMainWindow):
         self.output_tabs = QTabWidget()
         self.output_tabs.setObjectName("outputTabs")
         self.output_tabs.addTab(self.output_console, "Saida")
+        self.output_tabs.addTab(self.terminal, "Terminal")
         self.output_tabs.addTab(self.errors_table, "Erros")
         self.output_tabs.addTab(self.warnings_table, "Avisos")
         self.output_tabs.addTab(self.tokens_table, "Tokens")
@@ -384,10 +387,17 @@ class MainWindow(QMainWindow):
         self.action_compile = self._action(
             "&Compilar", self.compile, "Ctrl+B", "Roda a analise lexica agora", sfx="compile"
         )
+        self.action_run_ide = self._action(
+            "Executar no &terminal da IDE",
+            self.run_in_terminal,
+            "F5",
+            "Salva, gera o .exe de novo e roda aqui dentro (acentos funcionam)",
+            sfx="compile",
+        )
         self.action_run = self._action(
             "&Executar",
             self.run_executable,
-            "F5",
+            "F9",
             "Salva, gera o .exe de novo e abre em um console novo",
             sfx="compile",
         )
@@ -446,6 +456,7 @@ class MainWindow(QMainWindow):
 
         menu_run = self.menuBar().addMenu("&Executar")
         menu_run.addAction(self.action_compile)
+        menu_run.addAction(self.action_run_ide)
         menu_run.addAction(self.action_run)
         menu_run.addAction(self.action_clear_output)
 
@@ -482,7 +493,7 @@ class MainWindow(QMainWindow):
         toolbar.addActions([self.action_new, self.action_open, self.action_save])
         toolbar.addSeparator()
         toolbar.addActions(
-            [self.action_compile, self.action_run]
+            [self.action_compile, self.action_run_ide, self.action_run]
         )
 
     def _build_status_bar(self) -> None:
@@ -923,6 +934,19 @@ class MainWindow(QMainWindow):
         else:
             self._log(f"Nao foi possivel executar {destino}.")
 
+    def run_in_terminal(self) -> None:
+        """Salva, gera o `.exe` de novo e roda no terminal embutido (UTF-8)."""
+        if not self.generate_executable():
+            return
+        aba = self._aba_atual()
+        if aba is None or not aba.caminho:
+            return
+        destino = Path(aba.caminho).with_suffix(".exe")
+        self.output_tabs.setCurrentWidget(self.terminal)
+        self.terminal.iniciar(destino)
+        self.terminal.setFocus()
+        self._log(f"Executando no terminal da IDE: {destino}")
+
     # --- Preferencias -----------------------------------------------------------------------
 
     def apply_settings(self, settings: Settings) -> None:
@@ -935,6 +959,10 @@ class MainWindow(QMainWindow):
 
         self.output_console.apply_font(settings.font_family, settings.font_size)
         self.output_console.apply_colors(
+            settings.console_background, settings.console_foreground
+        )
+        self.terminal.apply_font(settings.font_family, settings.font_size)
+        self.terminal.apply_colors(
             settings.console_background, settings.console_foreground
         )
         if settings.theme == THEME_RESIDENT_EVIL:

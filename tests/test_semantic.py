@@ -273,6 +273,35 @@ def test_div_exige_operandos_inteiros() -> None:
     assert any("espera operandos inteiros" in m for m in erros_semanticos(fonte))
 
 
+def test_sqrt_e_sqr_sao_reconhecidas_sem_declaracao() -> None:
+    sem_diagnosticos(
+        "programa P; var x, y: real; "
+        "begin x := sqrt(sqr(3.0) + sqr(4.0)); y := sqr(x); end."
+    )
+
+
+def test_sqrt_devolve_real_e_sqr_devolve_o_tipo_do_argumento() -> None:
+    # `sqrt` sempre é real (mesmo sobre integer); `sqr` segue o argumento
+    fonte = "programa P; var i: integer; r: real; begin i := sqr(3); r := sqrt(2); end."
+    sem_diagnosticos(fonte)
+
+
+def test_sqrt_de_argumento_nao_numerico() -> None:
+    fonte = "programa P; var s: string; r: real; begin r := sqrt(s); end."
+    assert any("esperado número" in m for m in erros_semanticos(fonte))
+
+
+def test_sqrt_com_argumento_roubado_e_como_instrucao() -> None:
+    assert any(
+        "espera 1 argumento(s)" in m
+        for m in erros_semanticos("programa P; var r: real; begin r := sqrt(1, 2); end.")
+    )
+    assert any(
+        "não pode ser usada como instrução" in m
+        for m in erros_semanticos("programa P; begin sqr(3); end.")
+    )
+
+
 def test_condicao_de_if_deve_ser_logica() -> None:
     fonte = "programa P; var x: integer; begin if x then x := 1; end."
     assert any("condição lógica" in m for m in erros_semanticos(fonte))

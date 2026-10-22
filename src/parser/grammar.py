@@ -1,11 +1,12 @@
 """Gramática da linguagem, em forma de dados.
 
-O texto do Anexo I é transcrito em `ANEXO_I`, com dois ajustes para casar com
-o Pascal padrão: `repeat` aceita uma lista de instruções e não uma única
-instrução, e `termo2` reconhece `mod` e `div` (aritmética inteira). As
-extensões da parte 2 do trabalho (`for`, tipos `record` e enumeração) ficam em
-`EXTENSOES`. `GRAMATICA` é a união das duas e é o que o IDE exibe na aba
-*Gramática*.
+O texto do Anexo I é transcrito em `ANEXO_I`, com ajustes para casar com o
+Pascal padrão: `repeat` aceita uma lista de instruções e não uma única
+instrução, `termo2` reconhece `mod` e `div` (aritmética inteira), e
+`parametros2` aceita a formatação `expr : largura : precisao` do `write`.
+As extensões da parte 2 do trabalho (`for`, tipos `record` e enumeração)
+ficam em `EXTENSOES`. `GRAMATICA` é a união das duas e é o que o IDE exibe
+na aba *Gramática*.
 
 Cada produção é um `Producao` com um não terminal e suas alternativas, escritas
 na notação do enunciado. `VAZIA` (`ε`) marca a alternativa vazia, e `LPAREN`
@@ -83,7 +84,8 @@ ANEXO_I: tuple[Producao, ...] = (
             "bloco",
         ),
     ),
-    Producao("parametros2", ("expr parametros2", ", expr parametros2", VAZIA)),
+    Producao("parametros2", ("expr formatos parametros2", ", expr formatos parametros2", VAZIA)),
+    Producao("formatos", (": NUM", ": NUM : NUM", VAZIA)),
     Producao("expr", ("exprComparacao expr2",)),
     Producao(
         "expr2",

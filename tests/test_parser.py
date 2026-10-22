@@ -69,12 +69,32 @@ def mensagens_de_aviso(fonte: str) -> list[str]:
         "programa P; var x: integer; begin x[1] := 2; end.",
         "programa P; var x: integer; begin x[1 + 2] := x[3]; end.",
         "programa P; begin x := 'texto'; end.",
+        "programa P; begin writeln(x:5:2); end.",
+        "programa P; begin writeln('soma: ', x:5); end.",
+        "programa P; begin write(1:3, y:4:1, 'fim'); end.",
+        "programa P; var x: real; begin x := sqrt(sqr(3.0) + sqr(4.0)); end.",
         "programa P; begin { comentario } x := 1; end.",
         "programa P; begin (* comentario *) x := 1; // fim\nend.",
     ],
 )
 def test_programas_validos(fonte: str) -> None:
     sem_erros(fonte)
+
+
+@pytest.mark.parametrize(
+    "fonte,trecho",
+    [
+        ("programa P; begin writeln(x:abc); end.", "esperado a largura"),
+        ("programa P; begin writeln(x:5:abc); end.", "esperado a precisão"),
+        ("programa P; begin writeln(x:); end.", "esperado a largura"),
+    ],
+)
+def test_formato_de_escrita(fonte: str, trecho: str | None) -> None:
+    # `write(x:largura:precisao)` só aceita números nas duas casas
+    if trecho is None:
+        sem_erros(fonte)
+    else:
+        assert any(trecho in m for m in mensagens_de_erro(fonte))
 
 
 # --- for -------------------------------------------------------------------

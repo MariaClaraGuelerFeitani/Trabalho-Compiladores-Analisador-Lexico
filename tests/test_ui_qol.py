@@ -19,14 +19,15 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QTextCursor
+from PySide6.QtGui import QKeyEvent, QTextCursor
 from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
 
 from src.app import build_lexer
-from src.codegen import tcc_disponivel
+from src.codegen import compilador, tcc_disponivel, traduzir
 from src.editor.code_editor import DEFAULT_BACKGROUND_OPACITY, CodeEditor
 from src.main_window import MainWindow
 from src.panels.file_explorer import FileExplorer
+from src.panels.terminal_view import TerminalView
 from src.services.lexer_service import Symbol
 from src.settings import (
     MAX_FONT_SIZE,
@@ -539,11 +540,122 @@ def test_analise_alimenta_o_completar(janela: MainWindow) -> None:
 # --- Geracao de executavel pela janela ----------------------------------------------------
 
 
-def test_menu_executar_tem_acao_unica(janela: MainWindow) -> None:
-    # "Gerar executavel" virou parte do proprio Executar (F5); sem F9
+def test_menu_executar_separa_terminal_e_console(janela: MainWindow) -> None:
+    # "Gerar executavel" virou parte do proprio Executar; F5 roda no terminal
+    # embutido (acentos ok) e F9 abre o console novo do Windows
     assert not hasattr(janela, "action_generate")
-    assert janela.action_run.shortcut().toString() == "F5"
+    assert janela.action_run_ide.shortcut().toString() == "F5"
+    assert janela.action_run.shortcut().toString() == "F9"
+    assert "terminal" in janela.action_run_ide.text().lower()
     assert "Executar" in janela.action_run.text()
+
+
+def test_executar_no_terminal_gera_e_roda_no_painel(
+    janela: MainWindow, tmp_path, monkeypatch
+) -> None:
+    arquivo = tmp_path / "terminal.pas"
+    arquivo.write_text(PROGRAMA, encoding="utf-8")
+    janela.abrir_caminho(str(arquivo))
+
+    chamados: list[str] = []
+    monkeypatch.setattr(
+        janela, "generate_executable", lambda: chamados.append("gerou") or True
+    )
+    monkeypatch.setattr(
+        janela.terminal, "iniciar", lambda _destino: chamados.append("iniciou")
+    )
+    janela.run_in_terminal()
+    assert chamados == ["gerou", "iniciou"]
+    assert janela.output_tabs.currentWidget() is janela.terminal
+
+
+# --- Terminal embutido -------------------------------------------------------
+
+
+class _ProcessoFalso:
+    """Processo mínimo do TerminalView: grava o digitado e devolve uma saída."""
+
+    def __init__(self, saida: bytes = b"") -> None:
+        self.escritos: list[bytes] = []
+        self._saida = saida
+
+    def write(self, dados: bytes) -> int:
+        self.escritos.append(dados)
+        return len(dados)
+
+    def readAllStandardOutput(self) -> bytes:
+        saida, self._saida = self._saida, b""
+        return saida
+
+
+def _tecla(key: int, texto: str = "") -> QKeyEvent:
+    return QKeyEvent(
+        QKeyEvent.Type.KeyPress, int(key), Qt.KeyboardModifier.NoModifier, texto
+    )
+
+
+def test_terminal_digita_envia_e_mostra_acentos(app: QApplication) -> None:
+    # O terminal e o unico lugar onde a entrada e digitada: a linha vai por
+    # pipe em UTF-8 (nao pela codepage do cmd) e a saida volta em UTF-8.
+    terminal = TerminalView()
+    processo = _ProcessoFalso()
+    terminal._processo = processo
+    for tecla, texto in (
+        (Qt.Key.Key_J, "J"),
+        (Qt.Key.Key_O, "o"),
+        (Qt.Key.Key_S, "é"),
+        (Qt.Key.Key_Backspace, ""),
+        (Qt.Key.Key_S, "é"),
+        (Qt.Key.Key_Return, ""),
+    ):
+        terminal.keyPressEvent(_tecla(tecla, texto))
+    assert processo.escritos == ["Joé\n".encode()]
+    assert "Joé" in terminal.toPlainText()
+
+    # saída acentuada do programa chega inteira, mesmo em pedaços
+    terminal._processo = _ProcessoFalso(b"Ol\xc3\xa1, Jos\xc3\xa9!\n")
+    terminal._receber()
+    assert "Olá, José!" in terminal.toPlainText()
+
+
+def test_terminal_sem_processo_nao_digita_nem_edita_saida(
+    app: QApplication,
+) -> None:
+    terminal = TerminalView()
+    terminal._escrever("saida impressa\n")
+    texto_antes = terminal.toPlainText()
+    terminal.keyPressEvent(_tecla(Qt.Key.Key_A, "a"))
+    terminal.keyPressEvent(_tecla(Qt.Key.Key_Backspace))
+    assert terminal.toPlainText() == texto_antes
+    assert terminal._linha == ""
+
+
+@requer_tcc
+def test_terminal_embutido_rodando_programa_real(
+    app: QApplication, tmp_path
+) -> None:
+    fonte = (
+        "programa Soma;\nvar a, b: integer;\nbegin\n"
+        "write('a: ');\nreadln(a);\nwrite('b: ');\nreadln(b);\n"
+        "writeln('soma: ', a + b);\nend.\n"
+    )
+    codigo = traduzir(build_lexer().analyze(fonte).tokens)
+    destino = tmp_path / "soma_terminal.exe"
+    ok, mensagem = compilador.compilar(codigo, destino)
+    assert ok, mensagem
+
+    terminal = TerminalView()
+    terminal.iniciar(destino)
+    assert terminal._processo is not None
+    processo = terminal._processo
+    assert processo.waitForStarted(10000)
+    for caractere in "5\n7\n":
+        tecla = Qt.Key.Key_Return if caractere == "\n" else ord(caractere)
+        terminal.keyPressEvent(_tecla(tecla, caractere))
+    assert processo.waitForFinished(20000)
+    assert "soma: 12" in terminal.toPlainText()
+    assert "terminado com codigo 0" in terminal.toPlainText()
+    assert not terminal.em_execucao
 
 
 @requer_tcc

@@ -403,6 +403,49 @@ def test_readln_lê_uma_linha_por_variavel(tmp_path: Path) -> None:
     assert "12" in saida
 
 
+def test_sqrt_vira_funcao_c_e_sqr_vira_multiplicacao() -> None:
+    codigo = traduzir_fonte(
+        "programa P; var x, y: real; "
+        "begin x := sqrt(sqr(3.0) + sqr(4.0)); y := sqr(x); end."
+    )
+    assert "#include <math.h>" in codigo
+    assert "sqrt(" in codigo
+    assert "((3.0) * (3.0))" in codigo
+    assert "((gx_x) * (gx_x))" in codigo
+
+
+def test_formato_de_escrita_vira_printf() -> None:
+    codigo = traduzir_fonte(
+        "programa P; var hip: real; "
+        "begin writeln('Hipotenusa: ', hip:5:2); end."
+    )
+    assert 'printf("%s%5.2f\\n", "Hipotenusa: ", gx_hip);' in codigo
+
+
+def test_formato_de_escrita_só_largura_em_string_e_inteiro() -> None:
+    codigo = traduzir_fonte(
+        "programa P; var s: string; i: integer; "
+        "begin writeln(s:10, i:4); end."
+    )
+    # `s:w` do Pascal corta e alinha; `%.ws` faz as duas coisas no printf
+    assert 'printf("%10.10s%4d\\n", gx_s, gx_i);' in codigo
+
+
+@requer_tcc
+def test_hipotenusa_com_sqrt_sqr_e_formato_compila_e_roda(tmp_path: Path) -> None:
+    saida = _compilar_e_rodar(
+        tmp_path,
+        "program Hipotenusa;\nvar\n  cat1, cat2, hip: real;\n"
+        "function CalcularHipo(x, y: real): real;\nbegin\n"
+        "  CalcularHipo := sqrt(sqr(x) + sqr(y));\nend;\n\nbegin\n"
+        "  write('Cateto A: ');\n  readln(cat1);\n  write('Cateto B: ');\n"
+        "  readln(cat2);\n\n  hip := CalcularHipo(cat1, cat2);\n"
+        "  writeln('Hipotenusa: ', hip:5:2);\nend.\n",
+        entrada="3\n4\n",
+    )
+    assert "Cateto A: Cateto B: Hipotenusa:  5.00" in saida
+
+
 @requer_tcc
 def test_erro_do_tcc_vira_mensagem_completa(tmp_path: Path) -> None:
     destino = tmp_path / "quebrado.exe"

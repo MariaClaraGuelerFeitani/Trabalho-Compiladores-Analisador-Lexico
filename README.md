@@ -16,12 +16,15 @@ compatibilidade de tipos em atribuicao, aritmetica, comparacoes e chamadas, com
 erros e avisos na mesma aba e no mesmo sublinhado das fases antigas.
 
 A quarta entrega transforma o IDE em compilador de verdade: o menu
-**Executar > Executar (F5)** salva o programa, o traduz para uma fonte C
-autossuficiente (`src/codegen/`), la com o Tiny C Compiler embutido em
-`tools/tcc/` — sempre regravando o `.exe` nativo do Windows ao lado do
-`.pas`, mesmo que um velho exista — e abre o binario em um console novo, onde
-`read`/`readln` funcionam interativamente; o console avisa se o
-programa terminou sem erros e espera uma tecla antes de fechar. A interface tambem ganhou
+**Executar > Executar no terminal da IDE (F5)** salva o programa, o traduz
+para uma fonte C autossuficiente (`src/codegen/`), la com o Tiny C Compiler
+embutido em `tools/tcc/` — sempre regravando o `.exe` nativo do Windows ao
+lado do `.pas`, mesmo que um velho exista — e roda o binario no **terminal
+embutido** (aba *Terminal*), onde stdin e stdout sao pipes em UTF-8: palavras
+acentuadas chegam e saem inteiras, diferente do codepage do CMD. A opcao
+**Executar (F9)** faz o mesmo caminho mas abre um console novo do Windows,
+com aviso se o programa terminou sem erros e espera por uma tecla antes de
+fechar. A interface tambem ganhou
 abas de editor, explorador de arquivos, busca e substituicao (Ctrl+F/Ctrl+H),
 arquivos recentes, zoom pela roda do mouse, layout persistido entre sessoes e
 tema proprio por pasta.
@@ -87,16 +90,16 @@ python tests\smoke_ui.py
 | `tests/test_lexer.py` | 137 | palavras reservadas, simbolos, identificadores, numeros, literais, comentarios, erros e tabela de simbolos |
 | `tests/test_dfa.py` | 143 | invariantes do automato: determinismo, alcancabilidade, aceitacao e maximo casamento |
 | `tests/test_grammar.py` | 26 | transcricao do Anexo I, extensoes da parte 2 e consistencia terminal/token |
-| `tests/test_parser.py` | 149 | programas validos e invalidos, `for`, `record`, enumeracao, `repeat` com lista de instrucoes, `mod`/`div`, acesso a campo, chamada de funcao em expressao, `;` final facultativo, aviso de instrucao sem efeito e recuperacao |
-| `tests/test_semantic.py` | 104 | escopos e sombreamento, identificador nao declarado, redeclaracao, compatibilidade de tipos, operadores (incluindo `mod`/`div` entre inteiros), condicoes, alias, enumeracao e registro, aridade e tipos de argumentos, retorno de funcao, `for`, constantes, avisos e os tres casos de teste em `.pas` |
+| `tests/test_parser.py` | 156 | programas validos e invalidos, `for`, `record`, enumeracao, `repeat` com lista de instrucoes, `mod`/`div`, formatacao `:largura:precisao` do `write`, acesso a campo, chamada de funcao em expressao, `;` final facultativo, aviso de instrucao sem efeito e recuperacao |
+| `tests/test_semantic.py` | 108 | escopos e sombreamento, identificador nao declarado, redeclaracao, compatibilidade de tipos, operadores (incluindo `mod`/`div` entre inteiros), `sqrt`/`sqr` predefinidas, condicoes, alias, enumeracao e registro, aridade e tipos de argumentos, retorno de funcao, `for`, constantes, avisos e os tres casos de teste em `.pas` |
 | `tests/test_highlighter.py` | 43 | realce por classe de token, cores do tema, preferencias, comentarios e integracao com a janela |
 | `tests/test_theme.py` | 115 | os 8 temas: registro, cores da paleta, realce e erro proprios, contraste minimo, escolha no dialogo, persistencia e fundo acompanhando a troca de tema |
 | `tests/test_background.py` | 23 | imagem de fundo do editor: caminho, opacidade, pintura, ajuste que cobre a area e persistencia |
 | `tests/test_icon.py` | 7 | icone do executavel: arquivos presentes, tamanhos do `.ico`, transparencia, arte inteira no quadro e carga no Qt |
-| `tests/test_codegen.py` | 42 | tradutor Pascal->C (tipos, record, enumeracao, lacos, strings, `mod`/`div`, E/S sem espaco sobrando no `scanf`), integracao real com o TCC embutido, incluindo o `valido.pas` canonico e `readln` com entrada por pipe, e a cadeia do cmd que segura o console aberto com aviso e `pause` |
-| `tests/test_ui_qol.py` | 42 | menu Exibir, explorador, sons so no tema Resident Evil (e antes do dialogo), recentes, busca/substituicao, zoom, geometria, temas por pasta (e o fundo junto), abas, foco do editor, acao unica do Executar (F5) e geracao de executavel pela janela |
+| `tests/test_codegen.py` | 46 | tradutor Pascal->C (tipos, record, enumeracao, lacos, strings, `mod`/`div`, `sqrt`/`sqr`, formatacao de `write`, E/S sem espaco sobrando no `scanf`), integracao real com o TCC embutido, incluindo o `valido.pas` canonico, `readln` com entrada por pipe e o programa `Hipotenusa` completo, e a cadeia do cmd que segura o console aberto com aviso e `pause` |
+| `tests/test_ui_qol.py` | 46 | menu Exibir, explorador, sons so no tema Resident Evil (e antes do dialogo), recentes, busca/substituicao, zoom, geometria, temas por pasta (e o fundo junto), abas, foco do editor, split Executar F5 (terminal embutido, com teclado e acentos) / F9 (console novo) e geracao de executavel pela janela |
 
-Total: 831 testes.
+Total: 850 testes.
 
 O teste de fumaca abre a interface em modo `offscreen`, digita um programa e
 valida aba por aba (tokens, erros, avisos, simbolos, classes de tokens, DFA e
@@ -134,7 +137,8 @@ relatorio nao consegue divergir do que o programa faz.
 | `Ctrl+S` | Salvar |
 | `Ctrl+Shift+S` | Salvar como |
 | `Ctrl+B` | Compilar (análise léxica, sintática e semântica imediatas) |
-| `F5` | Executar: salva, gera o `.exe` de novo com o TCC embutido e abre em um console novo, com aviso de fim e espera por uma tecla |
+| `F5` | Executar no terminal da IDE: salva, gera o `.exe` de novo com o TCC embutido e roda na aba *Terminal*, com stdin/stdout em UTF-8 (acentos funcionam) |
+| `F9` | Executar em console novo do Windows, com aviso de fim e espera por uma tecla |
 | `Ctrl+F` | Localizar no editor |
 | `Ctrl+H` | Localizar e substituir |
 | `Ctrl+L` | Limpar a aba Saída |
@@ -199,8 +203,11 @@ semantico terminam sem erros:
 1. `tradutor.py` refaz a descida recursiva sobre os tokens (a mesma gramatica do
    parser) e emite uma fonte C autossuficiente: `record` vira `struct`,
    enumeracao vira `enum`, `string` e `char[256]` com `strcpy`/`strcmp`/`+` via
-   helpers do preludio, `write`/`writeln` viram `printf` por tipo, `read`/`readln`
-   viram `scanf` (com descarte de linha), `for` avalia os limites uma unica vez
+   helpers do preludio, `write`/`writeln` viram `printf` por tipo (aceitando a
+   formatacao `expr : largura : precisao` do Pascal, ex.: `hip:5:2` vira
+   `%5.2f`), `read`/`readln`
+   viram `scanf` (com descarte de linha), `sqrt`/`sqr` das bibliotecas vao
+   direto para `sqrt()` do C e para `(x) * (x)`, `for` avalia os limites uma unica vez
    em temporarios e o resultado de funcao e uma variavel local devolvida por
    `return`. Identificadores ganham o prefixo `gx_` para nao colidir com C;
    construcoes que o C nao reproduz (como indexar algo que nao e `string`)
@@ -209,12 +216,16 @@ semantico terminam sem erros:
    `tools/tcc/tcc.exe` (Tiny C Compiler 0.9.27 win64, embutido no repositorio e
    no executavel do IDE; `tools/tcc/LICENSE.txt` registra origem e licenca
    LGPL). O `.exe` sai no mesmo diretorio do fonte.
-3. `Executar > Executar (F5)` salva o `.pas` (se houver mudancas) e roda os
-   passos 1 e 2 sempre — mesmo que um `.exe` velho ja exista — e em seguida
-   abre o binario com `CREATE_NEW_CONSOLE`, entao o
-   programa roda interativo: `readln` le do teclado do proprio console,
-   como um programa Pascal nativo. O console e aberto por um `cmd` que,
-   quando o programa termina, mostra uma linha de separacao (48 tracos) e
+3. `Executar > Executar no terminal da IDE (F5)` salva o `.pas` (se houver
+   mudancas) e roda os passos 1 e 2 sempre — mesmo que um `.exe` velho ja
+   exista — e em seguida roda o binario no terminal embutido (aba *Terminal*):
+   stdin e stdout sao pipes lidos e escritos em UTF-8 pelo proprio Qt, entao
+   `readln` aceita e `writeln` emite palavras acentuadas sem passar pela
+   codepage do CMD, e a linha digitada no painel chega inteira ao programa.
+   `Executar (F9)` segue o mesmo fluxo, mas abre o binario com
+   `CREATE_NEW_CONSOLE`: o programa roda interativo no console novo do
+   Windows, e um `cmd` guarda a tela — quando o programa termina, mostra uma
+   linha de separacao (48 tracos) e
    avisa se ele saiu sem erros (ou com erro em tempo de execucao), ficando
    aberto ate uma tecla ser pressionada, para dar tempo de ler a saida.
    Se a analise ou a compilacao falhar, nada e executado.
@@ -224,7 +235,7 @@ semantico terminam sem erros:
 | Arquivo | Responsabilidade |
 | --- | --- |
 | `src/lexer/tokens.py` | Tabelas de palavras reservadas e simbolos, regex e classes de tokens |
-| `src/lexer/dfa.py` | Automato finito deterministico unico mesclado (136 estados, 251 transicoes) |
+| `src/lexer/dfa.py` | Automato finito deterministico unico mesclado (141 estados, 261 transicoes) |
 | `src/lexer/lexer.py` | Scanner com maximo casamento, comentarios e tabela de simbolos |
 | `src/lexer/error_recovery.py` | Criacao de erros lexicos e pontos de sincronizacao |
 | `src/parser/grammar.py` | Anexo I em forma de dados, mais as extensoes da parte 2 |
@@ -249,7 +260,7 @@ src/
   main_window.py         Janela principal, menus, atalhos, abas, paineis de saida
   codegen/
     tradutor.py          Tradutor Guaxinim Pascal -> C (descida recursiva sobre os tokens)
-    compilador.py        Driver do TCC embutido e execucao do .exe em console novo
+    compilador.py        Driver do TCC embutido e execucao do .exe (terminal F5 / console F9)
     preludio.py          Helpers C emitidos antes de todo codigo gerado
   editor/
     code_editor.py       Editor com numero de linha, sublinhado de erro, busca e autocompletar
@@ -257,6 +268,7 @@ src/
   panels/
     data_table.py        Tabela somente leitura
     console_view.py      Aba Saida
+    terminal_view.py     Terminal embutido (F5): roda o .exe com pipes em UTF-8
     settings_dialog.py   Dialogo de preferencias
     file_explorer.py     Explorador de arquivos/pastas lateral
     find_bar.py          Barra de localizar e substituir
@@ -291,7 +303,7 @@ tools/
   make_icon.py           Gera img/racoon.ico a partir de img/racoon.png
   gerar_tabela_tokens.py Gera a tabela de tokens do relatorio a partir do codigo
   tcc/                   Tiny C Compiler 0.9.27 win64 embutido (tcc.exe, lib/, include/;
-                         LICENSE.txt com origem e licenca) usado pelo Executar (F5)
+                         LICENSE.txt com origem e licenca) usado pelo Executar (F5 no terminal e F9 no console)
 ```
 
 ## Mapa dos requisitos
@@ -321,7 +333,7 @@ tools/
 | 3 Atribuicao a funcao so no proprio corpo | `abrir_subprograma` (entrada propria) e `acesso(como_alvo=True)` |
 | 3 Laço `for` com variavel inteira e limites inteiros | `verificar_controle_de_for`, `verificar_limite_de_for` |
 | 3 Erros com linha/coluna nas tres fases | `LexicalError`/`Warning` reutilizados, prefixos `sintaxe: ` e `semantica: ` |
-| 4 Executar (`F5`) gera e roda | `src/codegen/tradutor.py` (Pascal->C), `src/codegen/compilador.py` (TCC, `CREATE_NEW_CONSOLE` e cadeia do `cmd` com aviso de fim e `pause`) e `tools/tcc/` |
+| 4 Executar (`F5` terminal embutido / `F9` console novo) gera e roda | `src/codegen/tradutor.py` (Pascal->C), `src/codegen/compilador.py` (TCC, `CREATE_NEW_CONSOLE` e cadeia do `cmd` com aviso de fim e `pause`), `src/panels/terminal_view.py` (pipes em UTF-8) e `tools/tcc/` |
 | 4 Abas, explorador, busca/substituicao, recentes, layout e tema por pasta | `src/main_window.py`, `src/panels/file_explorer.py`, `src/panels/find_bar.py` |
 
 ### Decisoes de projeto
@@ -361,6 +373,12 @@ tools/
   redeclaracao no mesmo escopo e erro (o lexer, sem escopo, so avisava).
 - `write`, `writeln`, `read` e `readln` nascem declarados como procedimentos
   predefinidos variadicos, para que `writeln('oi', 1)` nao seja "nao declarado".
+- `sqrt` e `sqr` tambem sao predefinidas, sem declaracao: `sqrt(x)` sempre
+  devolve `real` (argumento precisa ser numerico) e `sqr(x)` devolve o tipo do
+  argumento; no C gerado viram `sqrt()` e `(x) * (x)`.
+- `write`/`writeln` aceitam a formatacao `expr : largura : precisao` do Pascal
+  (`writeln(hip:5:2)` imprime com 2 casas e alinhado em 5 colunas, `s:10`
+  corta e alinha strings); em `read`/`readln` o `:` continua erro sintatico.
 - Unica promocao de tipos: `integer` em `real`; a divisao `/` produz sempre
   `real`, como no Pascal. `mod` e `div` sao palavras reservadas e operam so
   entre inteiros (`mod` vira `%` e `div` divisao inteira no C gerado). O tipo

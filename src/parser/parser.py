@@ -107,6 +107,10 @@ COMPARADORES = (
 
 OPERADORES = (ADICAO, SUBTRACAO)
 
+# `write`/`writeln` aceitam a formatação `expr : largura : precisao` do
+# Pascal; `read`/`readln` não.
+ESCRITA = ("write", "writeln")
+
 TIPOS_PRIMARIOS = (INTEGER, REAL, CHAR, STRING)
 
 INICIO_DE_DECLARACAO = (CONST, VAR, TYPE, PROCEDURE, FUNCTION)
@@ -723,7 +727,8 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
 
         if self._verificar(ABRE_PARENTESES):
             self._avancar()
-            tipos_argumentos = self._argumentos()
+            formatar = token_id is not None and token_id.lexema.lower() in ESCRITA
+            tipos_argumentos = self._argumentos(formatar=formatar)
             self._esperar(FECHA_PARENTESES, "')'")
             if self._semantico is not None and token_id is not None:
                 self._semantico.verificar_chamada(
@@ -846,17 +851,39 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
             return DESCONHECIDO
         return self._semantico.verificar_chamada(token, tipos_argumentos)
 
-    def _argumentos(self) -> tuple[str, ...]:
-        """A lista de argumentos de uma chamada; devolve o tipo de cada um."""
+    def _argumentos(self, formatar: bool = False) -> tuple[str, ...]:
+        """A lista de argumentos de uma chamada; devolve o tipo de cada um.
+
+        Com `formatar=True` (chamadas de `write`/`writeln`) consome a
+        formatação `expr : largura : precisao` após cada expressão.
+        """
         self._derivacao("parametros2")
         if self._verificar(FECHA_PARENTESES):
             return ()
         tipos: list[str] = []
         while True:
             tipos.append(self._expr())
+            if formatar:
+                self._consumir_formato_escrita()
             if not self._aceitar(VIRGULA):
                 break
         return tuple(tipos)
+
+    def _consumir_formato_escrita(self) -> None:
+        """`expr : NUM` ou `expr : NUM : NUM` do `write`; só valida os números."""
+        if not self._verificar(DOIS_PONTOS):
+            return
+        self._avancar()
+        if not self._verificar(NUM):
+            self._erro("esperado a largura (um número) após ':'")
+            return
+        self._avancar()
+        if not self._aceitar(DOIS_PONTOS):
+            return
+        if not self._verificar(NUM):
+            self._erro("esperado a precisão (um número) após ':'")
+            return
+        self._avancar()
 
     # --- Expressões -------------------------------------------------------
     # Cada método devolve o tipo inferido da expressão (`""` quando

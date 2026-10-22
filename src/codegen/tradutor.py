@@ -83,6 +83,7 @@ from ..lexer.tokens import (
     WHILE,
     E,
 )
+from ..semantic.semantico import FUNCOES_PREDEFINIDAS
 from ..semantic.tipos import CHAR as TIPO_CHAR
 from ..semantic.tipos import INTEIRO, LOGICO, TIPO_STRING
 from ..semantic.tipos import REAL as TIPO_REAL
@@ -109,6 +110,9 @@ INICIO_DE_DECLARACAO = (CONST, VAR, TYPE, PROCEDURE, FUNCTION)
 FIM_DE_BLOCO = (END, UNTIL, ELSE, PONTO)
 
 ROTULAS_DE_ENTRADA_SAIDA = ("write", "writeln", "read", "readln")
+
+# Só `write`/`writeln` aceitam a formatação `expr : largura : precisao`.
+ESCRITA = ("write", "writeln")
 
 PREFIXO = "gx_"
 
@@ -202,6 +206,7 @@ class Tradutor:
             "/* Gerado pelo Guaxinim Pascal IDE; nao editar a mao. */",
             "#include <stdio.h>",
             "#include <string.h>",
+            "#include <math.h>",
             "",
         ]
         linhas.extend(PRELUDIO_LINHAS)
@@ -697,7 +702,9 @@ class Tradutor:
                     token_id,
                 )
             self._avancar()
-            argumentos = self._argumentos()
+            argumentos = self._argumentos(
+                formatar=token_id.lexema.lower() in ESCRITA
+            )
             self._esperar(FECHA_PARENTESES)
             self._emitir_chamada_como_instrucao(token_id, argumentos)
             self._encerra_instrucao()
@@ -902,18 +909,31 @@ class Tradutor:
             tipo = TIPO_CHAR
         return expr_c, tipo
 
-    def _argumentos(self) -> list[tuple[str, str]]:
+    def _argumentos(self, formatar: bool = False) -> list[tuple[str, str, str]]:
+        """Argumentos como `(expressão C, tipo, formato :largura[.precisao])`."""
         if self._verificar(FECHA_PARENTESES):
             return []
-        argumentos: list[tuple[str, str]] = []
+        argumentos: list[tuple[str, str, str]] = []
         while True:
-            argumentos.append(self._expr())
+            expr_c, tipo = self._expr()
+            formato = self._consumir_formato_escrita() if formatar else ""
+            argumentos.append((expr_c, tipo, formato))
             if not self._aceitar(VIRGULA):
                 break
         return argumentos
 
+    def _consumir_formato_escrita(self) -> str:
+        """`expr : NUM` ou `expr : NUM : NUM` do write; devolve `largura[.precisao]`."""
+        if not self._aceitar(DOIS_PONTOS):
+            return ""
+        largura = self._esperar(NUM).lexema
+        if self._aceitar(DOIS_PONTOS):
+            precisao = self._esperar(NUM).lexema
+            return f"{largura}.{precisao}"
+        return largura
+
     def _emitir_chamada_como_instrucao(
-        self, token_id: Token, argumentos: list[tuple[str, str]]
+        self, token_id: Token, argumentos: list[tuple[str, str, str]]
     ) -> None:
         nome = token_id.lexema.lower()
         if nome in ROTULAS_DE_ENTRADA_SAIDA:
@@ -933,9 +953,11 @@ class Tradutor:
         self._emitir(chamada)
 
     def _chamar_como_operando(
-        self, token_id: Token, argumentos: list[tuple[str, str]]
+        self, token_id: Token, argumentos: list[tuple[str, str, str]]
     ) -> tuple[str, str]:
         nome = token_id.lexema.lower()
+        if nome in FUNCOES_PREDEFINIDAS:
+            return self._chamada_predefinida(token_id, argumentos)
         rotina = self._rotinas.get(nome)
         if rotina is None or not rotina.eh_funcao:
             raise ErroDeTraducao(
@@ -944,11 +966,25 @@ class Tradutor:
         chamada = f"{rotina.nome_c}({self._argumentos_c(rotina, argumentos)})"
         return chamada, rotina.retorno
 
+    def _chamada_predefinida(
+        self, token_id: Token, argumentos: list[tuple[str, str, str]]
+    ) -> tuple[str, str]:
+        """`sqrt` vira a função C de mesmo nome; `sqr(x)` vira `(x) * (x)`."""
+        if len(argumentos) != 1:
+            raise ErroDeTraducao(
+                f"'{token_id.lexema}' espera 1 argumento", token_id
+            )
+        expr_c, tipo_arg, _ = argumentos[0]
+        if token_id.lexema.lower() == "sqrt":
+            convertido = self._converter(expr_c, tipo_arg, TIPO_REAL)
+            return f"sqrt({convertido})", TIPO_REAL
+        return f"(({expr_c}) * ({expr_c}))", tipo_arg
+
     def _argumentos_c(
-        self, rotina: _Rotina, argumentos: list[tuple[str, str]]
+        self, rotina: _Rotina, argumentos: list[tuple[str, str, str]]
     ) -> str:
         convertidos: list[str] = []
-        for indice, (expr_c, tipo_expr) in enumerate(argumentos):
+        for indice, (expr_c, tipo_expr, _) in enumerate(argumentos):
             tipo_param = (
                 rotina.parametros[indice][1]
                 if indice < len(rotina.parametros)
@@ -973,7 +1009,7 @@ class Tradutor:
     # --- entrada e saida -----------------------------------------------------------
 
     def _emitir_entrada_saida(
-        self, nome: str, argumentos: list[tuple[str, str]]
+        self, nome: str, argumentos: list[tuple[str, str, str]]
     ) -> None:
         if nome in ("read", "readln"):
             self._emitir_leitura(nome, argumentos)
@@ -981,21 +1017,21 @@ class Tradutor:
         eh_writeln = nome == "writeln"
         formato = ""
         valores: list[str] = []
-        for expr_c, tipo in argumentos:
+        for expr_c, tipo, largura in argumentos:
             if tipo == LOGICO:
                 formato += "%s"
                 valores.append(f"(({expr_c}) ? \"True\" : \"False\")")
             elif tipo == INTEIRO:
-                formato += "%d"
+                formato += self._formato_escrita("%d", tipo, largura)
                 valores.append(expr_c)
             elif tipo == TIPO_REAL:
-                formato += "%g"
+                formato += self._formato_escrita("%g", tipo, largura)
                 valores.append(expr_c)
             elif tipo == TIPO_CHAR:
-                formato += "%c"
+                formato += self._formato_escrita("%c", tipo, largura)
                 valores.append(expr_c)
             else:
-                formato += "%s"
+                formato += self._formato_escrita("%s", tipo, largura)
                 valores.append(expr_c)
         if eh_writeln:
             formato += "\\n"
@@ -1005,12 +1041,35 @@ class Tradutor:
         argumentos_c = ", ".join(valores)
         self._emitir(f'printf("{formato}", {argumentos_c});')
 
+    @staticmethod
+    def _formato_escrita(diretriz: str, tipo: str, formato: str) -> str:
+        """Aplica a formatação `:largura[:precisao]` do Pascal a uma diretriz."""
+        if not formato:
+            return diretriz
+        partes = formato.split(".")
+        largura = partes[0]
+        precisao = partes[1] if len(partes) == 2 and partes[1] else ""
+        if tipo == TIPO_REAL:
+            # `:l:p` do Pascal é fixo com `p` casas; `:l` só ajusta a largura
+            # e mantém o `%g` padrão.
+            if precisao:
+                return f"%{largura}.{precisao}f"
+            return f"%{largura}g"
+        if tipo == TIPO_CHAR:
+            return f"%{largura}c"
+        if tipo == TIPO_STRING and not precisao:
+            # `s:l` do Pascal corta e alinha; `%.ls` faz as duas coisas.
+            return f"%{largura}.{largura}s"
+        if precisao:
+            return f"%{largura}.{precisao}{diretriz[-1]}"
+        return f"%{largura}{diretriz[-1]}"
+
     def _emitir_leitura(
-        self, nome: str, argumentos: list[tuple[str, str]]
+        self, nome: str, argumentos: list[tuple[str, str, str]]
     ) -> None:
         destino: list[str] = []
         formato = ""
-        for indice, (expr_c, tipo) in enumerate(argumentos):
+        for indice, (expr_c, tipo, _) in enumerate(argumentos):
             # Separador entre diretrizes; o espaco no FINAL do formato faria o
             # scanf bloquear esperando algo que nao seja branco depois do valor.
             separador = "" if indice == 0 else " "

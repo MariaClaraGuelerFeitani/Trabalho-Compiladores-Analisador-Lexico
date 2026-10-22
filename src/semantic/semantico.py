@@ -36,6 +36,10 @@ from . import tipos as tp
 
 PREDEFINIDOS = ("write", "writeln", "read", "readln")
 
+# Funções da biblioteca que o dialecto aceita sem declaração, com as
+# assinaturas checadas em `_verificar_funcao_predefinida`.
+FUNCOES_PREDEFINIDAS = ("sqrt", "sqr")
+
 COMPARADORES = ("=", "<>", "<", "<=", ">", ">=")
 
 
@@ -320,6 +324,10 @@ class AnaliseSemantica:
         """Avalia o uso de `token` como valor (ou como alvo de atribuição)."""
         entrada = self._tabela.buscar(token.lexema)
         if entrada is None:
+            if not como_alvo and token.lexema.lower() in FUNCOES_PREDEFINIDAS:
+                # `sqrt`/`sqr` não são declarações: o parser exige `(` em
+                # seguida e `verificar_chamada` confere os argumentos.
+                return InfoAcesso(token, tb.FUNCAO, tp.DESCONHECIDO)
             self._erro(f"identificador '{token.lexema}' não declarado", token)
             return InfoAcesso(token, tipo=tp.DESCONHECIDO)
         if como_alvo:
@@ -456,6 +464,10 @@ class AnaliseSemantica:
         """Confere existência, aridade e tipos; devolve o tipo de retorno."""
         entrada = self._tabela.buscar(token.lexema)
         if entrada is None:
+            if token.lexema.lower() in FUNCOES_PREDEFINIDAS:
+                return self._verificar_funcao_predefinida(
+                    token, tipos_argumentos, como_instrucao
+                )
             self._erro(f"identificador '{token.lexema}' não declarado", token)
             return tp.DESCONHECIDO
         if not entrada.eh_subprograma:
@@ -484,6 +496,37 @@ class AnaliseSemantica:
                         token,
                     )
         return entrada.tipo_retorno
+
+    def _verificar_funcao_predefinida(
+        self, token: Token, tipos_argumentos: tuple[str, ...], como_instrucao: bool
+    ) -> str:
+        """Assinaturas de `sqrt` (resultado `real`) e `sqr` (tipo do argumento)."""
+        nome = token.lexema.lower()
+        if como_instrucao:
+            self._erro(
+                f"'{nome}' é uma função e não pode ser usada como instrução",
+                token,
+            )
+            return tp.DESCONHECIDO
+        if len(tipos_argumentos) != 1:
+            self._erro(
+                f"'{nome}' espera 1 argumento(s), "
+                f"encontrado {len(tipos_argumentos)}",
+                token,
+            )
+            return tp.DESCONHECIDO
+        tipo_argumento = tipos_argumentos[0]
+        numerico = tp.resultado_aritmetico(tipo_argumento, tipo_argumento)
+        if tipo_argumento and numerico == tp.DESCONHECIDO:
+            self._erro(
+                f"argumento 1 de '{nome}': esperado número, "
+                f"encontrado {tp.descrever(tipo_argumento)}",
+                token,
+            )
+            return tp.DESCONHECIDO
+        if nome == "sqrt":
+            return tp.REAL
+        return tipo_argumento
 
     def instrucao_isolada(self, token: Token) -> bool:
         """`Q;` é uma chamada quando `Q` é subprograma; senão, não faz efeito.
@@ -514,6 +557,8 @@ class AnaliseSemantica:
         """Uso de `token` em expressão sem parênteses: chamada sem argumentos."""
         entrada = self._tabela.buscar(token.lexema)
         if entrada is None:
+            if token.lexema.lower() in FUNCOES_PREDEFINIDAS:
+                self._erro(f"'{token.lexema}' exige 1 argumento(s)", token)
             return tp.DESCONHECIDO
         if entrada.categoria == tb.FUNCAO and entrada.parametros:
             self._erro(
@@ -594,6 +639,7 @@ class AnaliseSemantica:
 
 
 __all__ = [
+    "FUNCOES_PREDEFINIDAS",
     "PREDEFINIDOS",
     "AnaliseSemantica",
     "InfoAcesso",
