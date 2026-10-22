@@ -1,6 +1,7 @@
 /* Gerado pelo Guaxinim Pascal IDE; nao editar a mao. */
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 #define GX_TAM_STRING 256
 
@@ -37,6 +38,7 @@ static void gx_consumir_linha(void) {
 
 
 int main(void) {
+	setvbuf(stdout, NULL, _IONBF, 0);
 	printf("%s\n", "Ola, Mundo!");
 	return 0;
 }

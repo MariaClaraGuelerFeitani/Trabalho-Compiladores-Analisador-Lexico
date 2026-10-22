@@ -48,6 +48,7 @@ double gx_calcularhipo(double gx_x, double gx_y) {
 }
 
 int main(void) {
+	setvbuf(stdout, NULL, _IONBF, 0);
 	printf("%s", "Cateto A: ");
 	scanf("%lf", &gx_cat1);
 	gx_consumir_linha();

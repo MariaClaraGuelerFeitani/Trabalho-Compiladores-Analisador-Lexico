@@ -41,6 +41,7 @@ int gx_soma;
 int gx_num;
 
 int main(void) {
+	setvbuf(stdout, NULL, _IONBF, 0);
 	printf("%s", "Limite superior: ");
 	scanf("%d", &gx_superior);
 	gx_consumir_linha();

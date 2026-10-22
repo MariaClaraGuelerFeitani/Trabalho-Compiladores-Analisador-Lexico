@@ -1,6 +1,7 @@
 /* Gerado pelo Guaxinim Pascal IDE; nao editar a mao. */
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 #define GX_TAM_STRING 256
 
@@ -40,6 +41,7 @@ int gx_b;
 int gx_resultado;
 
 int main(void) {
+	setvbuf(stdout, NULL, _IONBF, 0);
 	printf("%s", "Digite o primeiro numero: ");
 	scanf("%d", &gx_a);
 	gx_consumir_linha();

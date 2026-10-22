@@ -39,6 +39,7 @@ static void gx_consumir_linha(void) {
 int gx_num;
 
 int main(void) {
+	setvbuf(stdout, NULL, _IONBF, 0);
 	printf("%s", "Digite um numero inteiro: ");
 	scanf("%d", &gx_num);
 	gx_consumir_linha();
