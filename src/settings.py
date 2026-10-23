@@ -87,7 +87,6 @@ class Settings:
     window_state: str = ""
     explorer_root: str = ""
     recent_files: list[str] = field(default_factory=list)
-    project_themes: dict[str, str] = field(default_factory=dict)
 
     def copy(self) -> Settings:
         return Settings(**asdict(self))
@@ -152,14 +151,6 @@ def load_settings(path: Path | None = None) -> Settings:
             if not isinstance(value, list):
                 continue
             value = [item for item in value if isinstance(item, str)][:RECENT_LIMIT]
-        elif get_origin(expected) is dict and get_args(expected) == (str, str):
-            if not isinstance(value, dict):
-                continue
-            value = {
-                chave: item
-                for chave, item in value.items()
-                if isinstance(chave, str) and isinstance(item, str)
-            }
         else:
             continue
         values[key] = value

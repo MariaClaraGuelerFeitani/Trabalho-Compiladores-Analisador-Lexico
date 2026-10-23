@@ -51,10 +51,8 @@ from .services.lexer_service import AnalysisResult, LexerService
 from .settings import (
     MAX_FONT_SIZE,
     MIN_FONT_SIZE,
-    THEME_CHOICES,
     THEME_RESIDENT_EVIL,
     Settings,
-    background_image_for_theme,
     load_settings,
     save_settings,
 )
@@ -417,18 +415,6 @@ class MainWindow(QMainWindow):
             "",
             "Volta tema, fonte e cores ao padrao",
         )
-        self.action_pin_project_theme = self._action(
-            "Fixar tema para e&sta pasta",
-            self.fixar_tema_projeto,
-            "",
-            "Aplica o tema atual a todos os arquivos desta pasta",
-        )
-        self.action_unpin_project_theme = self._action(
-            "&Remover tema da pasta",
-            self.remover_tema_projeto,
-            "",
-            "Deixa a pasta de novo no tema global",
-        )
         self.action_zoom_in = self._action(
             "Aumentar &fonte", self.zoom_in, "Ctrl++", "Aumenta a fonte do editor"
         )
@@ -467,9 +453,6 @@ class MainWindow(QMainWindow):
         menu_tools = self.menuBar().addMenu("&Ferramentas")
         menu_tools.addAction(self.action_preferences)
         menu_tools.addAction(self.action_restore_defaults)
-        menu_tools.addSeparator()
-        menu_tools.addAction(self.action_pin_project_theme)
-        menu_tools.addAction(self.action_unpin_project_theme)
         menu_tools.addSeparator()
         menu_tools.addActions(
             [self.action_zoom_in, self.action_zoom_out, self.action_zoom_reset]
@@ -600,7 +583,6 @@ class MainWindow(QMainWindow):
         self._criar_aba(content, caminho)
         self._log(f"Abrido: {caminho}")
         self._registrar_recente(caminho)
-        self._aplicar_tema_do_projeto(caminho)
         self.explorer.marcar_arquivo_aberto(caminho)
 
     def save_file(self) -> bool:
@@ -705,48 +687,6 @@ class MainWindow(QMainWindow):
         self.settings.explorer_root = self.explorer.raiz()
         if not save_settings(self.settings, self._settings_path):
             self._log("Nao foi possivel gravar as preferencias.")
-
-    # --- Temas por pasta ---------------------------------------------------------------
-
-    def _pasta_atual(self) -> str | None:
-        aba = self._aba_atual()
-        if aba is None or not aba.caminho:
-            return None
-        return str(Path(aba.caminho).parent)
-
-    def fixar_tema_projeto(self) -> None:
-        pasta = self._pasta_atual()
-        if pasta is None:
-            self._log("Salve o arquivo antes de fixar um tema para a pasta.")
-            return
-        self.settings.project_themes[pasta] = self.settings.theme
-        if not save_settings(self.settings, self._settings_path):
-            self._log("Nao foi possivel gravar as preferencias.")
-            return
-        self._log(f"Tema '{self.settings.theme}' fixado para a pasta {pasta}.")
-
-    def remover_tema_projeto(self) -> None:
-        pasta = self._pasta_atual()
-        if pasta is None or pasta not in self.settings.project_themes:
-            self._log("Esta pasta nao tem tema proprio.")
-            return
-        del self.settings.project_themes[pasta]
-        if not save_settings(self.settings, self._settings_path):
-            self._log("Nao foi possivel gravar as preferencias.")
-            return
-        self._log(f"Tema proprio removido da pasta {pasta}.")
-
-    def _aplicar_tema_do_projeto(self, caminho: str) -> None:
-        pasta = str(Path(caminho).parent)
-        tema = self.settings.project_themes.get(pasta)
-        if tema and tema in THEME_CHOICES and tema != self.settings.theme:
-            configuracoes = self.settings.copy()
-            configuracoes.theme = tema
-            configuracoes.background_image_path = background_image_for_theme(
-                tema, configuracoes.background_image_path
-            )
-            self.commit_settings(configuracoes)
-            self._log(f"Tema do projeto aplicado: {tema}.")
 
     # --- Busca e substituicao -----------------------------------------------------------
 
@@ -1019,8 +959,18 @@ class MainWindow(QMainWindow):
     # --- Exibir e geometria ------------------------------------------------------------------
 
     def restaurar_layout_padrao(self) -> None:
+        # Restaura a disposicao dos paineis e o tamanho normal da janela, mas
+        # nao tira o usuario de tela cheia/maximizado: reaplica o estado em que
+        # a janela ja estava depois de devolver a geometria padrao (que fica
+        # valendo para quando ele restaurar/desmaximizar).
+        tela_cheia = self.isFullScreen()
+        maximizada = self.isMaximized()
         self.restoreGeometry(self._geometria_padrao)
         self.restoreState(self._estado_padrao)
+        if tela_cheia:
+            self.showFullScreen()
+        elif maximizada:
+            self.showMaximized()
         self.settings.window_geometry = ""
         self.settings.window_state = ""
         if not save_settings(self.settings, self._settings_path):

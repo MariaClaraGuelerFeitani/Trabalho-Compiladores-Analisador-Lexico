@@ -2,7 +2,7 @@
 
 Cobrem: menu Exibir, explorador de arquivos, sons so no tema Resident Evil
 (inclusive a ordem som-antes-do-dialogo), recentes, busca/substituicao,
-zoom pela roda do mouse, geometria persistida, temas por pasta, abas e a
+zoom pela roda do mouse, geometria persistida, abas e a
 geracao de executavel pela janela principal.
 """
 
@@ -44,7 +44,6 @@ from src.settings import (
     THEME_DARK,
     THEME_RESIDENT_EVIL,
     Settings,
-    default_background_image_for,
     load_settings,
 )
 
@@ -104,7 +103,6 @@ def test_campos_novos_existem_no_settings() -> None:
     assert config.window_state == ""
     assert config.explorer_root == ""
     assert config.recent_files == []
-    assert config.project_themes == {}
 
 
 # --- Menu Exibir ---------------------------------------------------------------
@@ -135,6 +133,33 @@ def test_restaurar_layout_limpa_geometria_salva(janela: MainWindow) -> None:
     janela.restaurar_layout_padrao()
     assert janela.settings.window_geometry == ""
     assert janela.settings.window_state == ""
+
+
+def test_restaurar_layout_preserva_janela_maximizada(
+    janela: MainWindow, app: QApplication
+) -> None:
+    janela.showMaximized()
+    app.processEvents()
+    assert janela.isMaximized()
+
+    janela.restaurar_layout_padrao()
+    app.processEvents()
+
+    # Restaurar os paineis nao pode devolver a janela a 1100x720.
+    assert janela.isMaximized()
+
+
+def test_restaurar_layout_preserva_tela_cheia(
+    janela: MainWindow, app: QApplication
+) -> None:
+    janela.showFullScreen()
+    app.processEvents()
+    assert janela.isFullScreen()
+
+    janela.restaurar_layout_padrao()
+    app.processEvents()
+
+    assert janela.isFullScreen()
 
 
 def test_geometria_e_persistida_entre_sessoes(app: QApplication, tmp_path) -> None:
@@ -401,72 +426,6 @@ def test_zoom_respeita_limites(janela: MainWindow) -> None:
     for _ in range(160):
         janela.zoom_out()
     assert janela.settings.font_size >= MIN_FONT_SIZE
-
-
-# --- Temas por pasta -----------------------------------------------------------------
-
-
-def test_fixar_e_remover_tema_da_pasta(janela: MainWindow, tmp_path) -> None:
-    arquivo = tmp_path / "projeto" / "x.pas"
-    arquivo.parent.mkdir()
-    arquivo.write_text(PROGRAMA, encoding="utf-8")
-    janela.abrir_caminho(str(arquivo))
-
-    configuracoes = janela.settings.copy()
-    configuracoes.theme = THEME_DARK
-    janela.commit_settings(configuracoes)
-
-    janela.fixar_tema_projeto()
-    salvo = load_settings(janela._settings_path)
-    assert salvo.project_themes[str(arquivo.parent)] == THEME_DARK
-
-    janela.remover_tema_projeto()
-    salvo = load_settings(janela._settings_path)
-    assert str(arquivo.parent) not in salvo.project_themes
-
-
-def test_tema_da_pasta_e_aplicado_ao_abrir(janela: MainWindow, tmp_path) -> None:
-    pasta = tmp_path / "estilo"
-    pasta.mkdir()
-    arquivo = pasta / "y.pas"
-    arquivo.write_text(PROGRAMA, encoding="utf-8")
-
-    configuracoes = janela.settings.copy()
-    configuracoes.theme = THEME_DARK
-    janela.commit_settings(configuracoes)
-    janela.settings.project_themes[str(pasta)] = THEME_DARK
-    configuracoes_claras = janela.settings.copy()
-    configuracoes_claras.theme = "light"
-    janela.commit_settings(configuracoes_claras)
-    assert janela.settings.theme == "light"
-
-    janela.abrir_caminho(str(arquivo))
-    assert janela.settings.theme == THEME_DARK
-
-
-def test_tema_da_pasta_tambem_troca_o_fundo(janela: MainWindow, tmp_path) -> None:
-    ada = default_background_image_for(THEME_RESIDENT_EVIL)
-    if not ada:
-        pytest.skip("imagem do Resident Evil nao encontrada")
-    pasta = tmp_path / "re"
-    pasta.mkdir()
-    arquivo = pasta / "z.pas"
-    arquivo.write_text(PROGRAMA, encoding="utf-8")
-
-    configuracoes = janela.settings.copy()
-    configuracoes.theme = THEME_DARK
-    janela.commit_settings(configuracoes)
-    janela.settings.project_themes[str(pasta)] = THEME_RESIDENT_EVIL
-
-    janela.abrir_caminho(str(arquivo))
-    assert janela.settings.theme == THEME_RESIDENT_EVIL
-    assert janela.settings.background_image_path == ada
-    assert janela._aba_atual().editor.has_background_image()
-
-    # devolve o tema global para nao deixar o som de fundo do RE tocando
-    configuracoes = janela.settings.copy()
-    configuracoes.theme = THEME_DARK
-    janela.commit_settings(configuracoes)
 
 
 # --- Abas ------------------------------------------------------------------------------

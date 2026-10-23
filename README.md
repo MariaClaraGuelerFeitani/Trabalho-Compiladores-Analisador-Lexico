@@ -26,8 +26,7 @@ acentuadas chegam e saem inteiras, diferente do codepage do CMD. A opcao
 com aviso se o programa terminou sem erros e espera por uma tecla antes de
 fechar. A interface tambem ganhou
 abas de editor, explorador de arquivos, busca e substituicao (Ctrl+F/Ctrl+H),
-arquivos recentes, zoom pela roda do mouse, layout persistido entre sessoes e
-tema proprio por pasta.
+arquivos recentes, zoom pela roda do mouse e layout persistido entre sessoes.
 
 ## Requisitos
 
@@ -97,9 +96,9 @@ python tests\smoke_ui.py
 | `tests/test_background.py` | 23 | imagem de fundo do editor: caminho, opacidade, pintura, ajuste que cobre a area e persistencia |
 | `tests/test_icon.py` | 7 | icone do executavel: arquivos presentes, tamanhos do `.ico`, transparencia, arte inteira no quadro e carga no Qt |
 | `tests/test_codegen.py` | 48 | tradutor Pascal->C (tipos, record, enumeracao, lacos, strings, `mod`/`div`, `sqrt`/`sqr`, formatacao de `write`, saida sem buffer para pipe, E/S sem espaco sobrando no `scanf`), integracao real com o TCC embutido, incluindo o `valido.pas` canonico, `readln` com entrada por pipe, o programa `Hipotenusa` completo e o prompt chegando antes da entrada, e a cadeia do cmd que segura o console aberto com aviso e `pause` |
-| `tests/test_ui_qol.py` | 47 | menu Exibir, explorador, sons so no tema Resident Evil (e antes do dialogo), recentes, busca/substituicao, zoom, geometria, temas por pasta (e o fundo junto), abas (ordem e rotulos de cada tabela), foco do editor, split Executar F5 (terminal embutido, com prompt na hora, teclado e acentos) / F9 (console novo) e geracao de executavel pela janela |
+| `tests/test_ui_qol.py` | 46 | menu Exibir, explorador, sons so no tema Resident Evil (e antes do dialogo), recentes, busca/substituicao, zoom, geometria (inclusive restaurar layout sem sair de tela cheia/maximizado), abas (ordem e rotulos de cada tabela), foco do editor, split Executar F5 (terminal embutido, com prompt na hora, teclado e acentos) / F9 (console novo) e geracao de executavel pela janela |
 
-Total: 853 testes.
+Total: 852 testes.
 
 O teste de fumaca abre a interface em modo `offscreen`, digita um programa e
 valida aba por aba (tokens, erros, avisos, simbolos, classes de tokens, DFA e
@@ -173,9 +172,6 @@ relatorio nao consegue divergir do que o programa faz.
 - Menu **Exibir**: mostra/esconde cada painel (Explorador, Paineis de saida,
   Tokens e automato) e restaura o layout padrao; a posicao da janela e dos
   paineis persiste entre sessoes
-- Ferramentas > **Fixar tema para esta pasta**: grava o tema atual como tema da
-  pasta do arquivo salvo e o re-aplica ao abrir qualquer arquivo de la;
-  "Remover tema da pasta" volta a pasta ao tema global
 - Autocompletar no editor com `Ctrl+Space` (e sozinho apos 2 letras): palavras
   reservadas mais os simbolos declarados no programa atual
 - Sons de botao, compilacao e musica de fundo **apenas no tema Resident Evil**,
@@ -190,7 +186,7 @@ relatorio nao consegue divergir do que o programa faz.
   sistema segue a paleta do desktop. Uma preferencia de cor sempre vence a cor
   do tema.
 - Preferencias em JSON (tema, fonte, cores do editor e do
-  terminal, cores do realce, imagem de fundo, recentes, tema por pasta e
+  terminal, cores do realce, imagem de fundo, recentes e
   geometria da janela) com visualizacao ao vivo
 - Numero maximo de identificadores (15 caracteres), comentarios em `//`, `{ }` e `(* *)`,
   palavras reservadas em minusculas - tratados pelo analisador em `src/lexer/`
@@ -338,7 +334,7 @@ tools/
 | 3 Laço `for` com variavel inteira e limites inteiros | `verificar_controle_de_for`, `verificar_limite_de_for` |
 | 3 Erros com linha/coluna nas tres fases | `LexicalError`/`Warning` reutilizados, prefixos `sintaxe: ` e `semantica: ` |
 | 4 Executar (`F5` terminal embutido / `F9` console novo) gera e roda | `src/codegen/tradutor.py` (Pascal->C), `src/codegen/compilador.py` (TCC, `CREATE_NEW_CONSOLE` e cadeia do `cmd` com aviso de fim e `pause`), `src/panels/terminal_view.py` (pipes em UTF-8) e `tools/tcc/` |
-| 4 Abas, explorador, busca/substituicao, recentes, layout e tema por pasta | `src/main_window.py`, `src/panels/file_explorer.py`, `src/panels/find_bar.py` |
+| 4 Abas, explorador, busca/substituicao, recentes e layout | `src/main_window.py`, `src/panels/file_explorer.py`, `src/panels/find_bar.py` |
 
 ### Decisoes de projeto
 
