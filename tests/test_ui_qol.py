@@ -26,7 +26,15 @@ from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
 from src.app import build_lexer
 from src.codegen import compilador, tcc_disponivel, traduzir
 from src.editor.code_editor import DEFAULT_BACKGROUND_OPACITY, CodeEditor
-from src.main_window import MainWindow
+from src.main_window import (
+    TAB_ERRORS,
+    TAB_OUTPUT,
+    TAB_SYMBOLS,
+    TAB_TERMINAL,
+    TAB_TOKENS,
+    TAB_WARNINGS,
+    MainWindow,
+)
 from src.panels.file_explorer import FileExplorer
 from src.panels.terminal_view import TerminalView
 from src.services.lexer_service import Symbol
@@ -462,6 +470,49 @@ def test_tema_da_pasta_tambem_troca_o_fundo(janela: MainWindow, tmp_path) -> Non
 
 
 # --- Abas ------------------------------------------------------------------------------
+
+
+def test_abas_de_saida_ficam_na_ordem_com_rotulo_certo(janela: MainWindow) -> None:
+    # Regressao: com o Terminal inserido no indice 1, os rotulos aplicados por
+    # indice fixo caíam na tabela vizinha ("Erros" no Terminal, "Tabela de
+    # simbolos" duplicada). Cada rotulo tem que estar na sua propria tabela.
+    abas = janela.output_tabs
+    ordem = [
+        janela.output_console,
+        janela.terminal,
+        janela.errors_table,
+        janela.warnings_table,
+        janela.tokens_table,
+        janela.symbols_table,
+    ]
+    assert [abas.widget(i) for i in range(abas.count())] == ordem
+    assert (TAB_OUTPUT, TAB_TERMINAL, TAB_ERRORS, TAB_WARNINGS, TAB_TOKENS, TAB_SYMBOLS) == (
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+    )
+
+    resultado = janela.analysis.analyze_now(PROGRAMA)
+    janela._show_result(resultado)
+
+    def rotulo(widget) -> str:
+        return abas.tabText(abas.indexOf(widget))
+
+    assert rotulo(janela.output_console) == "Saida"
+    assert rotulo(janela.terminal) == "Terminal"
+    assert rotulo(janela.errors_table) == f"Erros ({len(resultado.all_errors)})"
+    assert rotulo(janela.warnings_table) == f"Avisos ({len(resultado.all_warnings)})"
+    assert rotulo(janela.tokens_table) == f"Tokens ({resultado.token_count})"
+    assert (
+        rotulo(janela.symbols_table)
+        == f"Tabela de simbolos ({len(resultado.symbols)})"
+    )
+
+    rotulos = [abas.tabText(i) for i in range(abas.count())]
+    assert len(set(rotulos)) == len(rotulos), f"abas duplicadas: {rotulos}"
 
 
 def test_novo_arquivo_abre_uma_aba(janela: MainWindow) -> None:

@@ -62,11 +62,15 @@ from .theme import apply_theme
 
 WINDOW_SIZE = (1100, 720)
 
+# Ordem real das abas em `_build_docks`. Os rotulos com contagem sao aplicados
+# pelo widget (`indexOf`), entao estas constantes servem so para quem precisa
+# falar de uma aba de fora da janela (testes, smoke).
 TAB_OUTPUT = 0
-TAB_ERRORS = 1
-TAB_WARNINGS = 2
-TAB_TOKENS = 3
-TAB_SYMBOLS = 4
+TAB_TERMINAL = 1
+TAB_ERRORS = 2
+TAB_WARNINGS = 3
+TAB_TOKENS = 4
+TAB_SYMBOLS = 5
 
 COLUMNS_ERRORS = ["Linha", "Coluna", "Lexema", "Mensagem"]
 COLUMNS_WARNINGS = ["Linha", "Coluna", "Mensagem"]
@@ -869,12 +873,21 @@ class MainWindow(QMainWindow):
         )
 
     def _update_count_labels(self, result: AnalysisResult) -> None:
-        self.output_tabs.setTabText(TAB_ERRORS, f"Erros ({len(result.all_errors)})")
-        self.output_tabs.setTabText(
-            TAB_WARNINGS, f"Avisos ({len(result.all_warnings)})"
+        # Pelo widget, nao pelo indice: inserir/reordenar abas (como o Terminal
+        # no F5) nao pode mais deslocar o rotulo para a tabela vizinha.
+        self._set_tab_text(self.errors_table, f"Erros ({len(result.all_errors)})")
+        self._set_tab_text(
+            self.warnings_table, f"Avisos ({len(result.all_warnings)})"
         )
-        self.output_tabs.setTabText(TAB_TOKENS, f"Tokens ({result.token_count})")
-        self.output_tabs.setTabText(TAB_SYMBOLS, f"Tabela de simbolos ({len(result.symbols)})")
+        self._set_tab_text(self.tokens_table, f"Tokens ({result.token_count})")
+        self._set_tab_text(
+            self.symbols_table, f"Tabela de simbolos ({len(result.symbols)})"
+        )
+
+    def _set_tab_text(self, widget: QWidget, texto: str) -> None:
+        indice = self.output_tabs.indexOf(widget)
+        if indice >= 0:
+            self.output_tabs.setTabText(indice, texto)
 
     def _clear_result_panels(self) -> None:
         for table in (

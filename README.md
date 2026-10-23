@@ -97,9 +97,9 @@ python tests\smoke_ui.py
 | `tests/test_background.py` | 23 | imagem de fundo do editor: caminho, opacidade, pintura, ajuste que cobre a area e persistencia |
 | `tests/test_icon.py` | 7 | icone do executavel: arquivos presentes, tamanhos do `.ico`, transparencia, arte inteira no quadro e carga no Qt |
 | `tests/test_codegen.py` | 48 | tradutor Pascal->C (tipos, record, enumeracao, lacos, strings, `mod`/`div`, `sqrt`/`sqr`, formatacao de `write`, saida sem buffer para pipe, E/S sem espaco sobrando no `scanf`), integracao real com o TCC embutido, incluindo o `valido.pas` canonico, `readln` com entrada por pipe, o programa `Hipotenusa` completo e o prompt chegando antes da entrada, e a cadeia do cmd que segura o console aberto com aviso e `pause` |
-| `tests/test_ui_qol.py` | 46 | menu Exibir, explorador, sons so no tema Resident Evil (e antes do dialogo), recentes, busca/substituicao, zoom, geometria, temas por pasta (e o fundo junto), abas, foco do editor, split Executar F5 (terminal embutido, com prompt na hora, teclado e acentos) / F9 (console novo) e geracao de executavel pela janela |
+| `tests/test_ui_qol.py` | 47 | menu Exibir, explorador, sons so no tema Resident Evil (e antes do dialogo), recentes, busca/substituicao, zoom, geometria, temas por pasta (e o fundo junto), abas (ordem e rotulos de cada tabela), foco do editor, split Executar F5 (terminal embutido, com prompt na hora, teclado e acentos) / F9 (console novo) e geracao de executavel pela janela |
 
-Total: 852 testes.
+Total: 853 testes.
 
 O teste de fumaca abre a interface em modo `offscreen`, digita um programa e
 valida aba por aba (tokens, erros, avisos, simbolos, classes de tokens, DFA e
