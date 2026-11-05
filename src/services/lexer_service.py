@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from ..parser.ast import No
 
 
 @dataclass(frozen=True)
@@ -79,6 +82,7 @@ class AnalysisResult:
     dfa_transitions: tuple[DfaTransition, ...] = ()
     semantic_errors: tuple[LexicalError, ...] = ()
     semantic_warnings: tuple[Warning, ...] = ()
+    arvore: No | None = None
 
     @property
     def has_errors(self) -> bool:

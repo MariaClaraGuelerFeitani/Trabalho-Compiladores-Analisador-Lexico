@@ -178,7 +178,7 @@ relatorio nao consegue divergir do que o programa faz.
   tocando no momento em que o dialogo abre
 - Icone proprio (`img/racoon.png`) na janela, na barra de tarefas e no executavel;
   no Windows o `AppUserModelID` evita que o Explorador mostre o icone do Python
-- Abas de saida: Tokens, Erros, Avisos, Tabela de Simbolos, Classes de Tokens,
+- Abas de saida: Tokens, Erros, Avisos, Tabela de Simbolos, AST, Classes de Tokens,
   DFA - Estados, DFA - Transicoes e Gramatica
 - Dez temas em **Preferencias > Aparencia**: Sistema, Claro, Escuro, Oceano, Sepia,
   Alto contraste, Floresta, Solarized (claro e escuro) e Resident Evil. Cada tema
@@ -240,6 +240,7 @@ semantico terminam sem erros:
 | `src/lexer/error_recovery.py` | Criacao de erros lexicos e pontos de sincronizacao |
 | `src/parser/grammar.py` | Anexo I em forma de dados, mais as extensoes da parte 2 |
 | `src/parser/parser.py` | Analisador sintatico por descida recursiva, com recuperacao e ganchos para o semantico |
+| `src/parser/ast.py` | Nos da AST (programa inteiro), desenho ASCII e exportacao JSON |
 | `src/parser/service.py` | Encadeia lexico, sintatico e semantico em um unico `AnalysisResult` |
 | `src/semantic/tipos.py` | Modelo de tipos (`integer`, `real`, `char`, `string`, logico) e regras de compatibilidade |
 | `src/semantic/tabela.py` | Tabela de simbolos com escopos encadeados e categorias de entrada |
@@ -332,6 +333,8 @@ tools/
 | 3 Chamadas: aridade e tipos dos argumentos | `AnaliseSemantica.verificar_chamada` |
 | 3 Atribuicao a funcao so no proprio corpo | `abrir_subprograma` (entrada propria) e `acesso(como_alvo=True)` |
 | 3 Laço `for` com variavel inteira e limites inteiros | `verificar_controle_de_for`, `verificar_limite_de_for` |
+| 3 `break`/`continue` com validacao de laço | `AnaliseSemantica.entrar_laco`, `verificar_desvio`; `Parser._instrucao_enquanto`, `_instrucao_repita`, `_instrucao_para` |
+| 3 AST de expressoes/programa com precedencia e exportacao | `src/parser/ast.py` (`para_ascii`, `para_json`) e nos `No*`; aba AST em `src/main_window.py` |
 | 3 Erros com linha/coluna nas tres fases | `LexicalError`/`Warning` reutilizados, prefixos `sintaxe: ` e `semantica: ` |
 | 4 Executar (`F5` terminal embutido / `F9` console novo) gera e roda | `src/codegen/tradutor.py` (Pascal->C), `src/codegen/compilador.py` (TCC, `CREATE_NEW_CONSOLE` e cadeia do `cmd` com aviso de fim e `pause`), `src/panels/terminal_view.py` (pipes em UTF-8) e `tools/tcc/` |
 | 4 Abas, explorador, busca/substituicao, recentes e layout | `src/main_window.py`, `src/panels/file_explorer.py`, `src/panels/find_bar.py` |

@@ -71,6 +71,7 @@ class AnaliseSemantica:
         self._avisos: list[Warning] = []
         self._subprogramas: list[tb.Entrada] = []
         self._registradas: list[tb.Entrada] = []
+        self._profundidade_laco = 0
         for nome in PREDEFINIDOS:
             self._declarar(tb.Entrada(nome, tb.PREDEFINIDO, variadico=True), None)
 
@@ -413,6 +414,24 @@ class AnaliseSemantica:
             self._erro(
                 f"o comando '{comando}' espera uma condição lógica, "
                 f"encontrado {tp.descrever(tipo)}",
+                token,
+            )
+
+    # --- Laços e desvios de fluxo ----------------------------------------
+
+    def entrar_laco(self) -> None:
+        """Abre um laço; `break`/`continue` passam a ser válidos."""
+        self._profundidade_laco += 1
+
+    def sair_laco(self) -> None:
+        """Fecha o laço mais interno, mesmo após erro sintático no corpo."""
+        self._profundidade_laco = max(0, self._profundidade_laco - 1)
+
+    def verificar_desvio(self, token: Token, comando: str) -> None:
+        """`break` e `continue` só podem aparecer dentro de while/repeat/for."""
+        if self._profundidade_laco == 0:
+            self._erro(
+                f"'{comando}' usado fora de um laço de repetição",
                 token,
             )
 

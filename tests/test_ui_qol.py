@@ -27,6 +27,7 @@ from src.app import build_lexer
 from src.codegen import compilador, tcc_disponivel, traduzir
 from src.editor.code_editor import DEFAULT_BACKGROUND_OPACITY, CodeEditor
 from src.main_window import (
+    TAB_AST,
     TAB_ERRORS,
     TAB_OUTPUT,
     TAB_SYMBOLS,
@@ -443,15 +444,17 @@ def test_abas_de_saida_ficam_na_ordem_com_rotulo_certo(janela: MainWindow) -> No
         janela.warnings_table,
         janela.tokens_table,
         janela.symbols_table,
+        janela.ast_view,
     ]
     assert [abas.widget(i) for i in range(abas.count())] == ordem
-    assert (TAB_OUTPUT, TAB_TERMINAL, TAB_ERRORS, TAB_WARNINGS, TAB_TOKENS, TAB_SYMBOLS) == (
+    assert (TAB_OUTPUT, TAB_TERMINAL, TAB_ERRORS, TAB_WARNINGS, TAB_TOKENS, TAB_SYMBOLS, TAB_AST) == (
         0,
         1,
         2,
         3,
         4,
         5,
+        6,
     )
 
     resultado = janela.analysis.analyze_now(PROGRAMA)
@@ -469,6 +472,8 @@ def test_abas_de_saida_ficam_na_ordem_com_rotulo_certo(janela: MainWindow) -> No
         rotulo(janela.symbols_table)
         == f"Tabela de simbolos ({len(resultado.symbols)})"
     )
+    assert rotulo(janela.ast_view) == "AST"
+    assert "Programa Demo" in janela.ast_view.toPlainText()
 
     rotulos = [abas.tabText(i) for i in range(abas.count())]
     assert len(set(rotulos)) == len(rotulos), f"abas duplicadas: {rotulos}"

@@ -17,6 +17,8 @@ exibição.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from ..lexer import Lexer
 from ..semantic import AnaliseSemantica
 from ..services.lexer_service import AnalysisResult, LexerService
@@ -51,7 +53,7 @@ class AnaliseService:
             and not erros_semanticos
             and not avisos_semanticos
         ):
-            return resultado
+            return replace(resultado, arvore=sintatico.arvore)
         return AnalysisResult(
             tokens=resultado.tokens,
             errors=resultado.errors + sintatico.erros,
@@ -62,6 +64,7 @@ class AnaliseService:
             dfa_transitions=resultado.dfa_transitions,
             semantic_errors=erros_semanticos,
             semantic_warnings=avisos_semanticos,
+            arvore=sintatico.arvore,
         )
 
 

@@ -92,6 +92,29 @@ from ..semantic.tipos import (
     resultado_aritmetico,
 )
 from ..services.lexer_service import LexicalError, Token, Warning
+from .ast import (
+    No,
+    NoAtribuicao,
+    NoBinario,
+    NoBloco,
+    NoCampo,
+    NoChamada,
+    NoDeclaracaoConstante,
+    NoDeclaracaoSubprograma,
+    NoDeclaracaoTipo,
+    NoDeclaracaoVariavel,
+    NoDesvio,
+    NoEnquanto,
+    NoIndice,
+    NoLiteral,
+    NoNumero,
+    NoPara,
+    NoPrograma,
+    NoRepita,
+    NoSe,
+    NoUnario,
+    NoVariavel,
+)
 
 # Marca usada internamente para "fim da entrada". Não colide com nenhum token.
 FIM = ""
@@ -175,10 +198,36 @@ class ResultadoSintatico:
     erros: tuple[LexicalError, ...] = ()
     avisos: tuple[Warning, ...] = ()
     derivacoes: tuple[str, ...] = ()
+    arvore: No | None = None
 
     @property
     def ok(self) -> bool:
         return not self.erros
+
+
+@dataclass(frozen=True)
+class ResultadoExpr:
+    """Tipo inferido e nó da AST de uma expressão."""
+
+    tipo: str = DESCONHECIDO
+    no: No | None = None
+
+
+@dataclass(frozen=True)
+class Sufixo:
+    """`[expr]` ou `.campo` aplicado a uma variável."""
+
+    tipo: str
+    token: Token | None = None
+    indice: No | None = None
+
+
+@dataclass(frozen=True)
+class ResultadoAcesso:
+    """Resultado de `id`, `id[expr]` ou `id.campo`, com o nó correspondente."""
+
+    info: InfoAcesso
+    no: No
 
 
 @dataclass
@@ -212,6 +261,7 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
             for simbolo in (simbolos or ())
             if simbolo.kind in ("procedimento", "funcao")
         }
+        self._arvore: No | None = None
 
     def analisar(self) -> ResultadoSintatico:
         self._estado = _Estado()
@@ -231,6 +281,7 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
             tuple(self._estado.erros),
             tuple(self._estado.avisos),
             tuple(self._estado.derivacoes),
+            self._arvore,
         )
 
     # --- Cursor -----------------------------------------------------------
@@ -334,88 +385,124 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
             self._erro("esperado 'program' ou 'programa': o arquivo está vazio")
             return
         self._esperar(PROGRAM, "'program' ou 'programa'")
+        token_nome = self._token_atual()
         self._esperar(ID, "o nome do programa")
         self._esperar(PONTO_E_VIRGULA)
-        self._declaracoes()
+        declaracoes = self._declaracoes()
         self._esperar(BEGIN, "'begin'")
-        self._instrucoes()
+        comandos = self._instrucoes()
         self._esperar(END, "'end'")
         self._esperar(PONTO, "'.'")
+        self._arvore = NoPrograma(
+            nome=token_nome.lexema if token_nome else "",
+            declaracoes=declaracoes,
+            comandos=comandos,
+            linha=token_nome.linha if token_nome else 0,
+            coluna=token_nome.coluna if token_nome else 0,
+        )
 
-    def _declaracoes(self) -> None:
+    def _declaracoes(self) -> tuple[No, ...]:
         self._derivacao("declaracoes")
+        declaracoes: list[No] = []
         while self._verificar(*INICIO_DE_DECLARACAO):
             if self._verificar(CONST):
-                self._declaracao_constante()
+                declaracoes.extend(self._declaracao_constante())
             elif self._verificar(VAR):
-                self._declaracao_variavel()
+                declaracoes.extend(self._declaracao_variavel())
             elif self._verificar(TYPE):
-                self._declaracao_tipo()
+                declaracoes.extend(self._declaracao_tipo())
             else:
-                self._declaracao_procedimento()
+                declaracoes.extend(self._declaracao_procedimento())
+        return tuple(declaracoes)
 
-    def _declaracao_constante(self) -> None:
+    def _declaracao_constante(self) -> tuple[No, ...]:
         self._derivacao("declaracaoConstante")
         self._avancar()
+        nos: list[No] = []
         while self._verificar(ID):
-            if not self._declaracao_constante_simples():
+            no = self._declaracao_constante_simples()
+            if no is None:
                 self._sincronizar()
-                return
+                return tuple(nos)
+            nos.append(no)
         self._aceitar(PONTO_E_VIRGULA)
+        return tuple(nos)
 
-    def _declaracao_constante_simples(self) -> bool:
+    def _declaracao_constante_simples(self) -> NoDeclaracaoConstante | None:
         self._derivacao("declConsList")
         if not self._verificar(ID):
-            return False
+            return None
         token_nome = self._token_atual()
         if not self._esperar(ID, "o nome de uma constante"):
-            return False
+            return None
         tipo_declarado = ""
         if self._aceitar(DOIS_PONTOS):
             tipo_declarado = self._tipo()
         if not self._verificar(IGUALDADE_COMPARACAO, ATRIBUICAO):
             self._erro("esperado '=' para o valor da constante")
-            return False
+            return None
         self._avancar()
-        tipo_valor = self._valor()
+        valor = self._valor()
         if not self._verificar(PONTO_E_VIRGULA):
             self._erro("esperado ';' ao final da declaração de constante")
-            return False
+            return None
         self._avancar()
         if self._semantico is not None and token_nome is not None:
-            self._semantico.declarar_constante(token_nome, tipo_declarado, tipo_valor)
-        return True
+            self._semantico.declarar_constante(
+                token_nome, tipo_declarado, valor.tipo
+            )
+        return NoDeclaracaoConstante(
+            nome=token_nome.lexema if token_nome else "",
+            valor=valor.no.rotulo() if valor.no is not None else "",
+            linha=token_nome.linha if token_nome else 0,
+            coluna=token_nome.coluna if token_nome else 0,
+        )
 
-    def _declaracao_variavel(self) -> None:
+    def _declaracao_variavel(self) -> tuple[No, ...]:
         self._derivacao("declaracaoVariavel")
         self._avancar()
+        nos: list[No] = []
         while self._verificar(ID):
-            if not self._declaracao_variavel_simples():
+            no = self._declaracao_variavel_simples()
+            if no is None:
                 self._sincronizar()
-                return
+                return tuple(nos)
+            nos.append(no)
         self._aceitar(PONTO_E_VIRGULA)
+        return tuple(nos)
 
-    def _declaracao_variavel_simples(self) -> bool:
+    def _declaracao_variavel_simples(self) -> NoDeclaracaoVariavel | None:
         self._derivacao("declVar")
         nomes: list[Token] = []
         while True:
             token_nome = self._token_atual()
             if not self._esperar(ID, "o nome de uma variável"):
-                return False
+                return None
             if token_nome is not None:
                 nomes.append(token_nome)
             if not self._aceitar(VIRGULA):
                 break
         if not self._esperar(DOIS_PONTOS, "':' antes do tipo"):
-            return False
+            return None
         tipo = self._tipo()
         if self._semantico is not None and nomes:
             self._semantico.declarar_variaveis(tuple(nomes), tipo)
         if not self._verificar(PONTO_E_VIRGULA):
             self._erro("esperado ';' ao final da declaração de variável")
-            return False
+            return None
         self._avancar()
-        return True
+        return self._no_declaracao_variavel(nomes, tipo)
+
+    def _no_declaracao_variavel(
+        self, nomes: list[Token], tipo: str
+    ) -> NoDeclaracaoVariavel:
+        primeiro = nomes[0] if nomes else None
+        return NoDeclaracaoVariavel(
+            nomes=tuple(token.lexema for token in nomes),
+            tipo_declarado=tipo,
+            linha=primeiro.linha if primeiro else 0,
+            coluna=primeiro.coluna if primeiro else 0,
+        )
 
     def _tipo(self) -> str:
         self._derivacao("tipo")
@@ -428,22 +515,26 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
         self._erro("esperado um tipo (integer, real, char, string ou um tipo definido)")
         return ""
 
-    def _declaracao_tipo(self) -> None:
+    def _declaracao_tipo(self) -> tuple[No, ...]:
         self._derivacao("declaracaoTipo")
         self._avancar()
+        nos: list[No] = []
         while self._verificar(ID):
-            if not self._declaracao_tipo_simples():
+            no = self._declaracao_tipo_simples()
+            if no is None:
                 self._sincronizar()
-                return
+                return tuple(nos)
+            nos.append(no)
         self._aceitar(PONTO_E_VIRGULA)
+        return tuple(nos)
 
-    def _declaracao_tipo_simples(self) -> bool:
+    def _declaracao_tipo_simples(self) -> NoDeclaracaoTipo | None:
         self._derivacao("declTipo")
         token_nome = self._token_atual()
         if not self._esperar(ID, "o nome de um tipo"):
-            return False
+            return None
         if not self._esperar(IGUALDADE_COMPARACAO, "'=' na declaração de tipo"):
-            return False
+            return None
         tipo_base = ""
         campos: tuple[tuple[str, str], ...] | None = None
         constantes: tuple[str, ...] | None = None
@@ -453,29 +544,37 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
             tipo_base = self._anterior().lexema if self._avancar() else ""
         elif self._verificar(ABRE_PARENTESES):
             constantes = self._lista_enumeracao()
+            tipo_base = "enum"
             if constantes is None:
-                return False
+                return None
         elif self._verificar(RECORD):
             campos = self._corpo_registro()
+            tipo_base = "record"
             if campos is None:
-                return False
+                return None
         elif self._verificar(ENUM):
             self._avancar()
             constantes = self._lista_enumeracao()
+            tipo_base = "enum"
             if constantes is None:
-                return False
+                return None
         else:
             self._erro(
                 "esperado um tipo, uma lista de enumeração ou 'record' na declaração de tipo"
             )
-            return False
+            return None
         if not self._verificar(PONTO_E_VIRGULA):
             self._erro("esperado ';' ao final da declaração de tipo")
-            return False
+            return None
         self._avancar()
         if self._semantico is not None and token_nome is not None:
             self._semantico.declarar_tipo(token_nome, tipo_base, campos, constantes)
-        return True
+        return NoDeclaracaoTipo(
+            nome=token_nome.lexema if token_nome else "",
+            tipo_declarado=tipo_base,
+            linha=token_nome.linha if token_nome else 0,
+            coluna=token_nome.coluna if token_nome else 0,
+        )
 
     def _lista_enumeracao(self) -> tuple[str, ...] | None:
         """Uma enumeração entre parênteses; devolve os nomes declarados."""
@@ -553,19 +652,31 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
         self._avancar()
         return tuple((nome, tipo) for nome in nomes)
 
-    def _declaracao_procedimento(self) -> None:
+    def _declaracao_procedimento(self) -> tuple[No, ...]:
         self._derivacao("declProcedimento")
-        self._declaracao_procedimento_simples()
-        if self._verificar(PROCEDURE, FUNCTION):
-            self._declaracao_procedimento()
+        nos: list[No] = []
+        while self._verificar(PROCEDURE, FUNCTION):
+            inicio = self._estado.posicao
+            no = self._declaracao_procedimento_simples()
+            if no is not None:
+                nos.append(no)
+            if self._estado.posicao == inicio and not self._fim():
+                # Cabeçalho malformado: evita repetir o mesmo token para sempre.
+                self._sincronizar()
+                if self._estado.posicao == inicio and not self._fim():
+                    self._avancar()
+            if not self._verificar(PROCEDURE, FUNCTION):
+                break
+        return tuple(nos)
 
-    def _declaracao_procedimento_simples(self) -> bool:
+    def _declaracao_procedimento_simples(self) -> NoDeclaracaoSubprograma | None:
         self._derivacao("declProc")
         eh_funcao = self._atual() == FUNCTION
+        categoria = "funcao" if eh_funcao else "procedimento"
         self._avancar()
         token_nome = self._token_atual()
         if not self._esperar(ID, "o nome do subprograma"):
-            return False
+            return None
         parametros: tuple[tuple[str, str], ...] = ()
         if self._aceitar(ABRE_PARENTESES):
             parametros = self._lista_parametros()
@@ -573,32 +684,53 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
         elif not self._verificar(DOIS_PONTOS, PONTO_E_VIRGULA):
             # A lista de parâmetros é opcional: `procedure Q;` é válido.
             self._erro("esperado '(', ':' ou ';' após o nome do subprograma")
-            return False
+            return None
         tipo_retorno = ""
         if eh_funcao:
             if not self._esperar(DOIS_PONTOS, "':' antes do tipo de retorno"):
-                return False
+                return None
             tipo_retorno = self._tipo()
         iniciado = self._semantico is not None and token_nome is not None
         if iniciado:
             self._semantico.abrir_subprograma(
                 token_nome, eh_funcao, parametros, tipo_retorno
             )
+        corpo: NoBloco | None = None
+        declaracoes_locais: tuple[No, ...] = ()
         try:
             if not self._verificar(PONTO_E_VIRGULA):
                 self._erro("esperado ';' ao final do cabeçalho do subprograma")
-                return False
+                return None
             self._avancar()
             if self._verificar(VAR):
-                self._declaracao_variavel()
+                declaracoes_locais = self._declaracao_variavel()
             if not self._verificar(BEGIN):
                 self._erro("esperado 'begin' no corpo do subprograma")
-                return False
-            self._bloco()
-            return True
+                return None
+            corpo = self._bloco()
         finally:
             if iniciado:
                 self._semantico.fechar_subprograma()
+        linha = token_nome.linha if token_nome else 0
+        coluna = token_nome.coluna if token_nome else 0
+        nos_parametros = tuple(
+            NoDeclaracaoVariavel(
+                nomes=(nome,),
+                tipo_declarado=tipo,
+                linha=linha,
+                coluna=coluna,
+            )
+            for nome, tipo in parametros
+        )
+        return NoDeclaracaoSubprograma(
+            nome=token_nome.lexema if token_nome else "",
+            categoria=categoria,
+            parametros=nos_parametros,
+            declaracoes=declaracoes_locais,
+            corpo=corpo,
+            linha=linha,
+            coluna=coluna,
+        )
 
     def _lista_parametros(self) -> tuple[tuple[str, str], ...]:
         """A lista completa entre parênteses; `;` separa grupos de parâmetros."""
@@ -629,15 +761,17 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
         self._erro("esperado ';' ou ')' ao final da declaração de parâmetro")
         return None
 
-    def _bloco(self) -> None:
+    def _bloco(self) -> NoBloco:
         self._derivacao("bloco")
         self._esperar(BEGIN, "'begin'")
-        self._instrucoes()
+        comandos = self._instrucoes()
         self._esperar(END, "'end'")
         self._esperar(PONTO_E_VIRGULA, "';'")
+        return NoBloco(comandos=comandos)
 
-    def _instrucoes(self) -> None:
+    def _instrucoes(self) -> tuple[No, ...]:
         self._derivacao("instrucoes")
+        comandos: list[No] = []
         while not self._fim() and not self._verificar(*self._FIM_DE_BLOCO):
             inicio = self._estado.posicao
             if not self._verificar(*self._INICIO_DE_INST):
@@ -645,12 +779,17 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
                     f"esperado uma instrução, encontrado {self._descricao(self._atual())}"
                 )
                 self._sincronizar()
-            elif not self._instrucao():
-                self._sincronizar()
+            else:
+                no = self._instrucao()
+                if no is not None:
+                    comandos.append(no)
+                elif self._estado.posicao == inicio:
+                    self._sincronizar()
             if self._estado.posicao == inicio and not self._fim():
                 # Um ponto de sincronização que não inicia instrução faria o laço
                 # girar sem consumir nada; descarta-o para garantir progresso.
                 self._avancar()
+        return tuple(comandos)
 
     # Tokens que encerram uma sequência de instruções sem exigir `;` final.
     _FIM_DE_BLOCO = (END, UNTIL, ELSE, PONTO)
@@ -666,14 +805,13 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
         CONTINUE,
     )
 
-    def _instrucao(self) -> bool:
+    def _instrucao(self) -> No | None:
         self._derivacao("inst")
         tipo = self._atual()
         if tipo == ID:
             return self._instrucao_identificador()
         if tipo == BEGIN:
-            self._bloco()
-            return True
+            return self._bloco()
         if tipo == IF:
             return self._instrucao_se()
         if tipo == WHILE:
@@ -683,68 +821,119 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
         if tipo == FOR:
             return self._instrucao_para()
         if tipo in (BREAK, CONTINUE):
-            self._avancar()
+            token = self._avancar()
+            if self._semantico is not None and token is not None:
+                self._semantico.verificar_desvio(token, tipo.lower())
             if self._verificar(PONTO_E_VIRGULA):
                 self._avancar()
-                return True
-            if self._verificar(*self._FIM_DE_BLOCO) or self._fim():
-                return True
-            self._erro(f"esperado ';' após '{tipo.lower()}'")
-            return False
+            elif not (self._verificar(*self._FIM_DE_BLOCO) or self._fim()):
+                self._erro(f"esperado ';' após '{tipo.lower()}'")
+                return None
+            return NoDesvio(
+                comando=tipo.lower(),
+                linha=token.linha if token else 0,
+                coluna=token.coluna if token else 0,
+            )
         self._erro(f"instrução inválida: {self._descricao(tipo)}")
-        return False
+        return None
 
-    def _consumir_sufixos(self) -> list[tuple[str, Token | None]]:
+    def _consumir_sufixos(self) -> list[Sufixo]:
         """Consome `indice[...]` e `.campo` encadeados; devolve os marcadores."""
-        sufixos: list[tuple[str, Token | None]] = []
+        sufixos: list[Sufixo] = []
         while True:
             if self._verificar(ABRE_COLCHETES):
                 marca = self._avancar()
-                self._expr_op()
+                indice = self._expr_op()
                 self._esperar(FECHA_COLCHETES, "']'")
-                sufixos.append(("indice", marca))
+                sufixos.append(Sufixo("indice", marca, indice.no))
             elif self._verificar(PONTO):
                 self._avancar()
                 campo = self._token_atual()
                 self._esperar(ID, "o nome do campo do registro")
-                sufixos.append(("campo", campo))
+                sufixos.append(Sufixo("campo", campo))
             else:
                 return sufixos
 
-    def _aplicar_sufixo(
-        self, info: InfoAcesso, tipo_sufixo: str, token: Token | None
-    ) -> InfoAcesso:
+    def _aplicar_sufixo(self, info: InfoAcesso, sufixo: Sufixo) -> InfoAcesso:
         if self._semantico is None:
             return info
-        if tipo_sufixo == "campo":
-            return self._semantico.acesso_campo(info, token)
-        return self._semantico.acesso_indice(info, token)
+        if sufixo.tipo == "campo":
+            return self._semantico.acesso_campo(info, sufixo.token)
+        return self._semantico.acesso_indice(info, sufixo.token)
 
-    def _instrucao_identificador(self) -> bool:
+    def _no_com_sufixos(
+        self, token_id: Token | None, sufixos: list[Sufixo]
+    ) -> No:
+        no: No = NoVariavel(
+            nome=token_id.lexema if token_id else "",
+            linha=token_id.linha if token_id else 0,
+            coluna=token_id.coluna if token_id else 0,
+        )
+        for sufixo in sufixos:
+            if sufixo.tipo == "campo":
+                no = NoCampo(
+                    base=no,
+                    campo=sufixo.token.lexema if sufixo.token else "",
+                    linha=sufixo.token.linha if sufixo.token else 0,
+                    coluna=sufixo.token.coluna if sufixo.token else 0,
+                )
+            else:
+                no = NoIndice(
+                    base=no,
+                    indice=sufixo.indice,
+                    linha=sufixo.token.linha if sufixo.token else 0,
+                    coluna=sufixo.token.coluna if sufixo.token else 0,
+                )
+        return no
+
+    def _instrucao_identificador(self) -> No | None:
         token_id = self._token_atual()
         self._avancar()
         sufixos = self._consumir_sufixos()
+        no_alvo = self._no_com_sufixos(token_id, sufixos)
 
         if self._verificar(ABRE_PARENTESES):
             self._avancar()
             formatar = token_id is not None and token_id.lexema.lower() in ESCRITA
-            tipos_argumentos = self._argumentos(formatar=formatar)
+            argumentos = self._argumentos(formatar=formatar)
             self._esperar(FECHA_PARENTESES, "')'")
+            tipo_retorno = DESCONHECIDO
             if self._semantico is not None and token_id is not None:
-                self._semantico.verificar_chamada(
-                    token_id, tipos_argumentos, como_instrucao=True
+                tipo_retorno = self._semantico.verificar_chamada(
+                    token_id,
+                    tuple(argumento.tipo for argumento in argumentos),
+                    como_instrucao=True,
                 )
-            return self._encerra_instrucao()
+            if not self._encerra_instrucao():
+                return None
+            return NoChamada(
+                tipo=tipo_retorno,
+                nome=token_id.lexema if token_id else "",
+                argumentos=tuple(
+                    argumento.no
+                    for argumento in argumentos
+                    if argumento.no is not None
+                ),
+                linha=token_id.linha if token_id else 0,
+                coluna=token_id.coluna if token_id else 0,
+            )
 
         if self._verificar(ATRIBUICAO):
             self._avancar()
-            tipo_expr = self._expr()
+            expressao = self._expr()
             if self._semantico is not None and token_id is not None:
                 info = self._semantico.acesso(token_id, como_alvo=True)
-                for tipo_sufixo, token_sufixo in sufixos:
-                    info = self._aplicar_sufixo(info, tipo_sufixo, token_sufixo)
-                self._semantico.verificar_atribuicao(info, tipo_expr)
-            return self._encerra_instrucao()
+                for sufixo in sufixos:
+                    info = self._aplicar_sufixo(info, sufixo)
+                self._semantico.verificar_atribuicao(info, expressao.tipo)
+            if not self._encerra_instrucao():
+                return None
+            return NoAtribuicao(
+                alvo=no_alvo,
+                expressao=expressao.no,
+                linha=token_id.linha if token_id else 0,
+                coluna=token_id.coluna if token_id else 0,
+            )
 
         if self._verificar(PONTO_E_VIRGULA, END) or self._fim():
             chamada = None
@@ -756,18 +945,22 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
                 chamada = True
             if chamada:
                 self._aceitar(PONTO_E_VIRGULA)
-                return True
+                return NoChamada(
+                    nome=token_id.lexema if token_id else "",
+                    linha=token_id.linha if token_id else 0,
+                    coluna=token_id.coluna if token_id else 0,
+                )
             self._avisar(
                 f"instrução sem efeito: '{token_id.lexema if token_id else ''}' não altera nenhum valor",
                 token_id,
             )
             self._aceitar(PONTO_E_VIRGULA)
-            return True
+            return no_alvo
 
         self._erro(
             f"esperado ':=', '[', '(' ou ';' após '{token_id.lexema if token_id else ''}'"
         )
-        return False
+        return None
 
     def _encerra_instrucao(self) -> bool:
         if self._verificar(PONTO_E_VIRGULA):
@@ -781,58 +974,105 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
         self._erro("esperado ';' ao final da instrução")
         return False
 
-    def _instrucao_se(self) -> bool:
-        self._avancar()
+    def _instrucao_se(self) -> No | None:
+        token_se = self._avancar()
         token_condicao = self._token_atual()
-        tipo_condicao = self._expr()
-        self._verificar_condicao(tipo_condicao, token_condicao, "if")
+        condicao = self._expr()
+        self._verificar_condicao(condicao.tipo, token_condicao, "if")
         self._esperar(THEN, "'then'")
-        if not self._instrucao():
-            return False
-        if self._aceitar(ELSE):
-            return self._instrucao()
-        return True
+        entao = self._instrucao()
+        senao = self._instrucao() if self._aceitar(ELSE) else None
+        return NoSe(
+            condicao=condicao.no,
+            entao=entao,
+            senao=senao,
+            linha=token_se.linha if token_se else 0,
+            coluna=token_se.coluna if token_se else 0,
+        )
 
-    def _instrucao_enquanto(self) -> bool:
-        self._avancar()
+    def _instrucao_enquanto(self) -> No | None:
+        token = self._avancar()
         token_condicao = self._token_atual()
-        tipo_condicao = self._expr()
-        self._verificar_condicao(tipo_condicao, token_condicao, "while")
+        condicao = self._expr()
+        self._verificar_condicao(condicao.tipo, token_condicao, "while")
         self._esperar(DO, "'do'")
-        return self._instrucao()
+        if self._semantico is not None:
+            self._semantico.entrar_laco()
+        try:
+            corpo = self._instrucao()
+        finally:
+            if self._semantico is not None:
+                self._semantico.sair_laco()
+        return NoEnquanto(
+            condicao=condicao.no,
+            corpo=corpo,
+            linha=token.linha if token else 0,
+            coluna=token.coluna if token else 0,
+        )
 
-    def _instrucao_repita(self) -> bool:
-        self._avancar()
+    def _instrucao_repita(self) -> No | None:
+        token = self._avancar()
         # Lista de instruções como no Pascal padrão: o laço para em `until`
         # (`UNTIL` já está em `_FIM_DE_BLOCO`) e o `;` antes dele é facultativo.
-        self._instrucoes()
-        self._esperar(UNTIL, "'until'")
-        token_condicao = self._token_atual()
-        tipo_condicao = self._expr()
-        self._verificar_condicao(tipo_condicao, token_condicao, "until")
-        return self._encerra_instrucao()
+        if self._semantico is not None:
+            self._semantico.entrar_laco()
+        try:
+            corpo = self._instrucoes()
+            self._esperar(UNTIL, "'until'")
+            token_condicao = self._token_atual()
+            condicao = self._expr()
+            self._verificar_condicao(condicao.tipo, token_condicao, "until")
+        finally:
+            if self._semantico is not None:
+                self._semantico.sair_laco()
+        if not self._encerra_instrucao():
+            return None
+        return NoRepita(
+            corpo=NoBloco(comandos=corpo),
+            condicao=condicao.no,
+            linha=token.linha if token else 0,
+            coluna=token.coluna if token else 0,
+        )
 
-    def _instrucao_para(self) -> bool:
-        self._avancar()
+    def _instrucao_para(self) -> No | None:
+        token = self._avancar()
         token_variavel = self._token_atual()
         if not self._esperar(ID, "o nome da variável de controle"):
-            return False
+            return None
         tipo_controle = DESCONHECIDO
         if self._semantico is not None and token_variavel is not None:
             tipo_controle = self._semantico.verificar_controle_de_for(token_variavel)
         if not self._esperar(ATRIBUICAO, "':='"):
-            return False
+            return None
         token_limite = self._token_atual()
-        tipo_inicial = self._expr()
-        self._verificar_limite_de_for(tipo_controle, tipo_inicial, token_limite)
-        if not self._aceitar(TO, DOWNTO):
+        inicio = self._expr()
+        self._verificar_limite_de_for(tipo_controle, inicio.tipo, token_limite)
+        passo = "to"
+        if self._aceitar(DOWNTO):
+            passo = "downto"
+        elif not self._aceitar(TO):
             self._erro("esperado 'to' ou 'downto' no laço 'for'")
-            return False
+            return None
         token_limite = self._token_atual()
-        tipo_final = self._expr()
-        self._verificar_limite_de_for(tipo_controle, tipo_final, token_limite)
+        fim = self._expr()
+        self._verificar_limite_de_for(tipo_controle, fim.tipo, token_limite)
         self._esperar(DO, "'do'")
-        return self._instrucao()
+        if self._semantico is not None:
+            self._semantico.entrar_laco()
+        try:
+            corpo = self._instrucao()
+        finally:
+            if self._semantico is not None:
+                self._semantico.sair_laco()
+        return NoPara(
+            variavel=token_variavel.lexema if token_variavel else "",
+            inicio=inicio.no,
+            fim=fim.no,
+            passo=passo,
+            corpo=corpo,
+            linha=token.linha if token else 0,
+            coluna=token.coluna if token else 0,
+        )
 
     def _verificar_condicao(
         self, tipo: str, token: Token | None, comando: str
@@ -851,8 +1091,8 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
             return DESCONHECIDO
         return self._semantico.verificar_chamada(token, tipos_argumentos)
 
-    def _argumentos(self, formatar: bool = False) -> tuple[str, ...]:
-        """A lista de argumentos de uma chamada; devolve o tipo de cada um.
+    def _argumentos(self, formatar: bool = False) -> tuple[ResultadoExpr, ...]:
+        """A lista de argumentos de uma chamada, com tipo e nó de cada um.
 
         Com `formatar=True` (chamadas de `write`/`writeln`) consome a
         formatação `expr : largura : precisao` após cada expressão.
@@ -860,14 +1100,14 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
         self._derivacao("parametros2")
         if self._verificar(FECHA_PARENTESES):
             return ()
-        tipos: list[str] = []
+        argumentos: list[ResultadoExpr] = []
         while True:
-            tipos.append(self._expr())
+            argumentos.append(self._expr())
             if formatar:
                 self._consumir_formato_escrita()
             if not self._aceitar(VIRGULA):
                 break
-        return tuple(tipos)
+        return tuple(argumentos)
 
     def _consumir_formato_escrita(self) -> None:
         """`expr : NUM` ou `expr : NUM : NUM` do `write`; só valida os números."""
@@ -886,8 +1126,8 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
         self._avancar()
 
     # --- Expressões -------------------------------------------------------
-    # Cada método devolve o tipo inferido da expressão (`""` quando
-    # desconhecido), que os ganchos semânticos usam nas checagens seguintes.
+    # Cada método devolve `ResultadoExpr` (tipo inferido + nó da AST), que os
+    # ganchos semânticos usam nas checagens seguintes e a IDE usa na árvore.
 
     def _combinar_aritmetico(self, esquerda: str, direita: str, operador: Token | None) -> str:
         if self._semantico is not None and operador is not None:
@@ -900,116 +1140,201 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
             return resultado if resultado == INTEIRO else DESCONHECIDO
         return resultado
 
-    def _expr(self) -> str:
+    @staticmethod
+    def _binario(
+        esquerda: ResultadoExpr,
+        direita: ResultadoExpr,
+        operador: Token | None,
+        tipo: str,
+    ) -> ResultadoExpr:
+        return ResultadoExpr(
+            tipo,
+            NoBinario(
+                tipo=tipo,
+                operador=operador.lexema if operador else "",
+                esquerda=esquerda.no,
+                direita=direita.no,
+                linha=operador.linha if operador else 0,
+                coluna=operador.coluna if operador else 0,
+            ),
+        )
+
+    def _expr(self) -> ResultadoExpr:
         self._derivacao("expr")
-        tipo = self._expr_comparacao()
+        resultado = self._expr_comparacao()
         while self._verificar(OU, E):
             operador = self._avancar()
             direita = self._expr_comparacao()
             if self._semantico is not None and operador is not None:
-                tipo = self._semantico.combinar_logico(tipo, direita, operador)
+                tipo = self._semantico.combinar_logico(
+                    resultado.tipo, direita.tipo, operador
+                )
             else:
                 tipo = LOGICO
-        return tipo
+            resultado = self._binario(resultado, direita, operador, tipo)
+        return resultado
 
-    def _expr_comparacao(self) -> str:
+    def _expr_comparacao(self) -> ResultadoExpr:
         self._derivacao("exprComparacao")
-        tipo = self._expr_op()
+        resultado = self._expr_op()
         while self._verificar(*COMPARADORES):
             operador = self._avancar()
             direita = self._expr_op()
             if self._semantico is not None and operador is not None:
-                tipo = self._semantico.comparar(tipo, direita, operador)
+                tipo = self._semantico.comparar(
+                    resultado.tipo, direita.tipo, operador
+                )
             else:
                 tipo = LOGICO
-        return tipo
+            resultado = self._binario(resultado, direita, operador, tipo)
+        return resultado
 
-    def _expr_op(self) -> str:
+    def _expr_op(self) -> ResultadoExpr:
         self._derivacao("exprOp")
-        tipo = self._termo()
+        resultado = self._termo()
         while self._verificar(*OPERADORES):
             operador = self._avancar()
             direita = self._termo()
-            tipo = self._combinar_aritmetico(tipo, direita, operador)
-        return tipo
+            tipo = self._combinar_aritmetico(
+                resultado.tipo, direita.tipo, operador
+            )
+            resultado = self._binario(resultado, direita, operador, tipo)
+        return resultado
 
-    def _termo(self) -> str:
+    def _termo(self) -> ResultadoExpr:
         self._derivacao("termo")
-        tipo = self._unario()
+        resultado = self._unario()
         while self._verificar(MULTIPLICACAO, DIVISAO, MOD, DIV):
             operador = self._avancar()
             direita = self._unario()
-            tipo = self._combinar_aritmetico(tipo, direita, operador)
-        return tipo
+            tipo = self._combinar_aritmetico(
+                resultado.tipo, direita.tipo, operador
+            )
+            resultado = self._binario(resultado, direita, operador, tipo)
+        return resultado
 
-    def _unario(self) -> str:
+    def _unario(self) -> ResultadoExpr:
         self._derivacao("unario")
         operador = self._token_atual()
         if self._aceitar(*OPERADORES):
-            tipo = self._unario()
+            operando = self._unario()
             if self._semantico is not None and operador is not None:
-                return self._semantico.combinar_unario(tipo, operador)
-            return resultado_aritmetico(INTEIRO, tipo)
+                tipo = self._semantico.combinar_unario(operando.tipo, operador)
+            else:
+                tipo = resultado_aritmetico(INTEIRO, operando.tipo)
+            return ResultadoExpr(
+                tipo,
+                NoUnario(
+                    tipo=tipo,
+                    operador=operador.lexema if operador else "",
+                    operando=operando.no,
+                    linha=operador.linha if operador else 0,
+                    coluna=operador.coluna if operador else 0,
+                ),
+            )
         return self._fator()
 
-    def _fator(self) -> str:
+    def _fator(self) -> ResultadoExpr:
         self._derivacao("fator")
         if self._verificar(ABRE_PARENTESES):
             self._avancar()
-            tipo = self._expr()
+            resultado = self._expr()
             self._esperar(FECHA_PARENTESES, "')'")
-            return tipo
+            return resultado
         if self._verificar(NUM):
             token = self._avancar()
-            if token is not None and token.atributos == "inteiro":
-                return INTEIRO
-            return REAL
+            tipo = (
+                INTEIRO
+                if token is not None and token.atributos == "inteiro"
+                else REAL
+            )
+            return ResultadoExpr(
+                tipo,
+                NoNumero(
+                    tipo=tipo,
+                    valor=token.lexema if token else "",
+                    linha=token.linha if token else 0,
+                    coluna=token.coluna if token else 0,
+                ),
+            )
         if self._verificar(LITERAL):
-            self._avancar()
-            return TIPO_STRING
+            token = self._avancar()
+            return ResultadoExpr(
+                TIPO_STRING,
+                NoLiteral(
+                    tipo=TIPO_STRING,
+                    valor=token.lexema if token else "",
+                    linha=token.linha if token else 0,
+                    coluna=token.coluna if token else 0,
+                ),
+            )
         if self._verificar(ID):
             self._derivacao("variavel")
             token_id = self._token_atual()
-            info = self._acesso(token_id, como_alvo=False)
-            tipo = info.tipo
+            acesso = self._acesso(token_id, como_alvo=False)
+            tipo = acesso.info.tipo
+            no = acesso.no
             chamou = False
             while self._verificar(ABRE_PARENTESES):
                 # Chamada de função usada como operando: `x := dobro(n)`.
                 self._derivacao("parametros2")
                 self._avancar()
-                tipos_argumentos = self._argumentos()
+                argumentos = self._argumentos()
                 self._esperar(FECHA_PARENTESES, "')'")
                 chamou = True
-                tipo = self._verificar_chamada(token_id, tipos_argumentos)
+                tipo = self._verificar_chamada(
+                    token_id, tuple(arg.tipo for arg in argumentos)
+                )
+                no = NoChamada(
+                    tipo=tipo,
+                    nome=token_id.lexema if token_id else "",
+                    argumentos=tuple(
+                        arg.no for arg in argumentos if arg.no is not None
+                    ),
+                    linha=token_id.linha if token_id else 0,
+                    coluna=token_id.coluna if token_id else 0,
+                )
             if not chamou and self._semantico is not None and token_id is not None:
-                tipo = self._semantico.uso_sem_argumentos(token_id, info)
-            return tipo
+                tipo = self._semantico.uso_sem_argumentos(token_id, acesso.info)
+            return ResultadoExpr(tipo, no)
         self._erro(f"esperado uma expressão, encontrado {self._descricao(self._atual())}")
         self._sincronizar()
-        return DESCONHECIDO
+        return ResultadoExpr(DESCONHECIDO, None)
 
-    def _acesso(self, token_id: Token | None, como_alvo: bool) -> InfoAcesso:
-        """Um `ID` com seus sufixos; infere o tipo final do acesso."""
+    def _acesso(self, token_id: Token | None, como_alvo: bool) -> ResultadoAcesso:
+        """Um `ID` com seus sufixos; infere o tipo e monta o nó do acesso."""
         if self._semantico is None or token_id is None:
             self._avancar()
-            self._consumir_sufixos()
-            return InfoAcesso(Token(ID, "", 1, 1))
+            sufixos = self._consumir_sufixos()
+            return ResultadoAcesso(
+                InfoAcesso(Token(ID, "", 1, 1)),
+                self._no_com_sufixos(token_id, sufixos),
+            )
         info = self._semantico.acesso(token_id, como_alvo)
         self._avancar()
-        for tipo_sufixo, token_sufixo in self._consumir_sufixos():
-            info = self._aplicar_sufixo(info, tipo_sufixo, token_sufixo)
-        return info
+        sufixos = self._consumir_sufixos()
+        for sufixo in sufixos:
+            info = self._aplicar_sufixo(info, sufixo)
+        return ResultadoAcesso(info, self._no_com_sufixos(token_id, sufixos))
 
-    def _valor(self) -> str:
+    def _valor(self) -> ResultadoExpr:
         self._derivacao("valor")
         if self._verificar(LITERAL):
-            self._avancar()
-            return TIPO_STRING
+            token = self._avancar()
+            return ResultadoExpr(
+                TIPO_STRING,
+                NoLiteral(
+                    tipo=TIPO_STRING,
+                    valor=token.lexema if token else "",
+                    linha=token.linha if token else 0,
+                    coluna=token.coluna if token else 0,
+                ),
+            )
         return self._unario()
 
 
 def analisar(tokens: tuple[Token, ...], simbolos: tuple | None = None) -> ResultadoSintatico:
-    """Analisa `tokens` e devolve erros, avisos e as derivações aplicadas."""
+    """Analisa `tokens` e devolve erros, avisos, derivações e a AST."""
     return Parser(tokens, simbolos).analisar()
 
 
@@ -1018,6 +1343,9 @@ __all__ = [
     "FIM",
     "PONTOS_DE_SINCRONIZACAO",
     "Parser",
+    "ResultadoAcesso",
+    "ResultadoExpr",
     "ResultadoSintatico",
+    "Sufixo",
     "analisar",
 ]

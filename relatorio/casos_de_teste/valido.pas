@@ -82,8 +82,18 @@ BEGIN
   else
     writeln(p.rotulo);
 
+  { break e continue dentro de um laço }
+  while soma < 0 do
+  begin
+    soma := soma + 1;
+    if soma = 0 then
+      break
+    else
+      continue
+  end;
+
   if soma = 0 then
     writeln('fim')
   else
-    break;
+    writeln(p.rotulo);
 end.

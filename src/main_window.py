@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QMainWindow,
     QMessageBox,
+    QPlainTextEdit,
     QTabWidget,
     QToolButton,
     QVBoxLayout,
@@ -44,6 +45,7 @@ from .panels.file_explorer import FileExplorer
 from .panels.find_bar import FindBar
 from .panels.settings_dialog import SettingsDialog
 from .panels.terminal_view import TerminalView
+from .parser.ast import para_ascii
 from .parser.grammar import linhas_da_gramatica
 from .services.analysis_controller import AnalysisController
 from .services.file_service import UNSAVED_TITLE, FileService
@@ -69,6 +71,7 @@ TAB_ERRORS = 2
 TAB_WARNINGS = 3
 TAB_TOKENS = 4
 TAB_SYMBOLS = 5
+TAB_AST = 6
 
 COLUMNS_ERRORS = ["Linha", "Coluna", "Lexema", "Mensagem"]
 COLUMNS_WARNINGS = ["Linha", "Coluna", "Mensagem"]
@@ -315,6 +318,10 @@ class MainWindow(QMainWindow):
         self.dfa_states_table = DataTable(COLUMNS_DFA_STATES)
         self.dfa_transitions_table = DataTable(COLUMNS_DFA_TRANSITIONS)
         self.grammar_table = DataTable(COLUMNS_GRAMATICA)
+        self.ast_view = QPlainTextEdit()
+        self.ast_view.setObjectName("astView")
+        self.ast_view.setReadOnly(True)
+        self.ast_view.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
 
         self.output_tabs = QTabWidget()
         self.output_tabs.setObjectName("outputTabs")
@@ -324,6 +331,7 @@ class MainWindow(QMainWindow):
         self.output_tabs.addTab(self.warnings_table, "Avisos")
         self.output_tabs.addTab(self.tokens_table, "Tokens")
         self.output_tabs.addTab(self.symbols_table, "Tabela de simbolos")
+        self.output_tabs.addTab(self.ast_view, "AST")
         self.dock_output = self._add_dock(
             "Paineis de saida",
             self.output_tabs,
@@ -804,6 +812,12 @@ class MainWindow(QMainWindow):
             [(t.state, t.symbol, t.target) for t in result.dfa_transitions]
         )
         self.grammar_table.set_rows([(linha,) for linha in linhas_da_gramatica()])
+        if result.arvore is not None:
+            self.ast_view.setPlainText(para_ascii(result.arvore))
+        else:
+            self.ast_view.setPlainText(
+                "AST indisponivel: corrija os erros para gerar a arvore."
+            )
 
         self._update_count_labels(result)
         self.state_label.setText(
@@ -823,6 +837,7 @@ class MainWindow(QMainWindow):
         self._set_tab_text(
             self.symbols_table, f"Tabela de simbolos ({len(result.symbols)})"
         )
+        self._set_tab_text(self.ast_view, "AST")
 
     def _set_tab_text(self, widget: QWidget, texto: str) -> None:
         indice = self.output_tabs.indexOf(widget)
@@ -840,6 +855,7 @@ class MainWindow(QMainWindow):
             self.dfa_transitions_table,
         ):
             table.set_rows([])
+        self.ast_view.clear()
 
     # --- Geracao e execucao do executavel -------------------------------------------------
 
