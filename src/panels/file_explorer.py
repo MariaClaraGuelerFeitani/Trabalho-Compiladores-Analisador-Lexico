@@ -112,8 +112,8 @@ class FileExplorer(QWidget):
         )
         for caminho in entradas:
             self.arvore.addTopLevelItem(self._criar_item(caminho))
-        if self.arvore.topLevelItemCount() > 0:
-            self.arvore.expandItem(self.arvore.topLevelItem(0))
+        # Todas as pastas comecam recolhidas; abrir a primeira automaticamente
+        # confundia a raiz por mostrar uma pasta aberta sem acao do usuario.
 
     def marcar_arquivo_aberto(self, caminho: str) -> None:
         """Deixa o arquivo aberto em negrito na arvore (quando visivel)."""
@@ -139,8 +139,12 @@ class FileExplorer(QWidget):
         )
         item.setIcon(0, icone)
         if eh_pasta:
+            # A carga e preguicosa: a pasta ainda nao tem filhos no momento em
+            # que o item e criado. `ShowIndicator` mantem a seta visivel desde
+            # o inicio; `DontShowIndicatorWhenChildless` a esconderia ate o
+            # primeiro carregamento (que so acontece ao expandir).
             item.setChildIndicatorPolicy(
-                QTreeWidgetItem.ChildIndicatorPolicy.DontShowIndicatorWhenChildless
+                QTreeWidgetItem.ChildIndicatorPolicy.ShowIndicator
             )
         return item
 

@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeyEvent, QTextCursor
-from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
+from PySide6.QtWidgets import QApplication, QDialog, QMessageBox, QTreeWidgetItem
 
 from src.app import build_lexer
 from src.codegen import compilador, tcc_disponivel, traduzir
@@ -207,9 +207,17 @@ def test_explorador_lista_ignora_ocultos_e_carrega_subpastas(
     ]
     assert nomes == ["outra", "sub", "a.pas"]  # pastas primeiro, sem .oculto
 
-    # a primeira pasta da lista abre sozinha (mesmo vazia, nao tem filhos)
-    assert explorador.arvore.topLevelItem(0).childCount() == 0
-    # ...e as demais cargam os filhos so quando expandidas (carga preguicosa)
+    # nenhuma pasta abre sozinha: a arvore comeca toda recolhida
+    assert not explorador.arvore.topLevelItem(0).isExpanded()
+    assert not explorador.arvore.topLevelItem(1).isExpanded()
+    # a seta aparece desde o inicio, mesmo sem os filhos carregados
+    for indice in range(2):
+        pasta = explorador.arvore.topLevelItem(indice)
+        assert (
+            pasta.childIndicatorPolicy()
+            == QTreeWidgetItem.ChildIndicatorPolicy.ShowIndicator
+        )
+    # os filhos so sao carregados quando a pasta e expandida (carga preguicosa)
     item_sub = explorador.arvore.topLevelItem(1)
     assert item_sub.childCount() == 0
     explorador._expandir(item_sub)
