@@ -260,3 +260,23 @@ def test_preferencias_sem_o_campo_usa_o_padrao(tmp_path: Path) -> None:
     recarregado = load_settings(caminho)
     assert recarregado.background_image_path == Settings().background_image_path
     assert recarregado.background_image_opacity == Settings().background_image_opacity
+
+
+def test_rolagem_repinta_o_viewport_inteiro(
+    app: QApplication, imagem: Path
+) -> None:
+    """Regressao: sem repintura completa, o fundo era arrastado pela rolagem."""
+    editor = CodeEditor()
+    editor.resize(240, 120)
+    editor.setPlainText("\n".join(f"linha {i}" for i in range(200)))
+    editor.set_background_image(str(imagem), 100)
+    editor.show()
+    app.processEvents()
+
+    chamadas: list[tuple] = []
+    editor.viewport().update = lambda *args: chamadas.append(args)
+
+    editor.scrollContentsBy(0, 40)
+
+    assert chamadas, "a rolagem deve pedir repintura de todo o viewport"
+

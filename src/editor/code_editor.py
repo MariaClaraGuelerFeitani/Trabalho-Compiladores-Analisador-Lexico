@@ -147,6 +147,18 @@ class CodeEditor(QPlainTextEdit):
             QRect(contents.left(), contents.top(), self.line_number_area_width(), contents.height())
         )
 
+    def scrollContentsBy(self, dx: int, dy: int) -> None:
+        """Mantém a imagem de fundo fixa durante a rolagem.
+
+        O `QPlainTextEdit` rola deslocando o *backing store* do viewport e
+        repinta apenas a faixa exposta. Como o fundo é desenhado no
+        `paintEvent`, sem uma repintura completa os pixels da imagem seriam
+        arrastados junto com o texto e cortados nas bordas. Repintar todo o
+        viewport refaz o fundo sempre na mesma posição.
+        """
+        super().scrollContentsBy(dx, dy)
+        self.viewport().update()
+
     def changeEvent(self, event) -> None:
         super().changeEvent(event)
         if event.type() == QEvent.Type.PaletteChange:
