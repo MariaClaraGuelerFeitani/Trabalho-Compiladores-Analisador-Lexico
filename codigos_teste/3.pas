@@ -9,6 +9,4 @@ begin
     writeln(num, ' eh par')
   else
     writeln(num, ' eh impar');
-    
-  readkey;
-end.   
+end.

@@ -14,4 +14,4 @@ begin
   until (num > superior);
   
   writeln('Soma dos pares ate ', superior, ': ', soma);
-end.   
+end.

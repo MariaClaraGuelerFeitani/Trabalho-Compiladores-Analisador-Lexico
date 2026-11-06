@@ -50,6 +50,5 @@ int main(void) {
 	gx_consumir_linha();
 	gx_resultado = gx_a + gx_b;
 	printf("%s%d\n", "O resultado da soma eh: ", gx_resultado);
-	/* instrucao sem efeito: readkey */
 	return 0;
 }

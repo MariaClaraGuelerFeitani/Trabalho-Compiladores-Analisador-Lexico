@@ -48,6 +48,5 @@ int main(void) {
 	} else {
 		printf("%d%s\n", gx_num, " eh impar");
 	}
-	/* instrucao sem efeito: readkey */
 	return 0;
 }

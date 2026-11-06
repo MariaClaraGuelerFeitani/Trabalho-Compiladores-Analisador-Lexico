@@ -9,5 +9,4 @@ begin
   
   resultado := a + b;
   writeln('O resultado da soma eh: ', resultado);
-  readkey; {Pausa para visualização}
 end.   
