@@ -581,7 +581,13 @@ class Tradutor:
             # local morreria no return (recursão compartilha o buffer, como
             # já fazem os demais helpers de string do prelúdio).
             return f'static char {self._retorno_c}[GX_TAM_STRING] = "";'
-        return f"{self._tipo_c(rotina.retorno)} {self._retorno_c} = 0;"
+        tipo = self._tipo_c(rotina.retorno)
+        definicao = self._tipos.get(self._resolver_tipo(rotina.retorno).lower())
+        if definicao is not None and definicao.kind == "record":
+            # Em C, `struct x v = 0;` é inválido; o inicializador universal
+            # para agregados é `{0}`.
+            return f"{tipo} {self._retorno_c} = {{0}};"
+        return f"{tipo} {self._retorno_c} = 0;"
 
     # --- Tipos -----------------------------------------------------------------
 
@@ -687,7 +693,8 @@ class Tradutor:
         self._sair_bloco()
         self._emitir("}")
         self._esperar(END)
-        self._esperar(PONTO_E_VIRGULA)
+        # Bloco como instrução: `;` só é dispensável no fim do bloco externo.
+        self._encerra_instrucao()
 
     def _encerra_instrucao(self) -> None:
         if self._aceitar(PONTO_E_VIRGULA):
@@ -945,6 +952,12 @@ class Tradutor:
         if nome in ROTULAS_DE_ENTRADA_SAIDA:
             self._emitir_entrada_saida(nome, argumentos)
             return
+        if nome in FUNCOES_PREDEFINIDAS:
+            # O resultado é descartado, mas a chamada continua válida (mesma
+            # regra aplicada às funções declaradas pelo usuário).
+            chamada, _ = self._chamada_predefinida(token_id, argumentos)
+            self._emitir(f"{chamada};")
+            return
         rotina = self._rotinas.get(nome)
         if rotina is None:
             raise ErroDeTraducao(
@@ -984,7 +997,11 @@ class Tradutor:
         if token_id.lexema.lower() == "sqrt":
             convertido = self._converter(expr_c, tipo_arg, TIPO_REAL)
             return f"sqrt({convertido})", TIPO_REAL
-        return f"(({expr_c}) * ({expr_c}))", tipo_arg
+        # Avalia o argumento uma única vez (um `(x) * (x)` literal duplicaria
+        # efeitos colaterais, por exemplo em `sqr(f(x))`).
+        if tipo_arg == TIPO_REAL:
+            return f"gx_sqr_real({expr_c})", TIPO_REAL
+        return f"gx_sqr_int({expr_c})", INTEIRO
 
     def _argumentos_c(
         self, rotina: _Rotina, argumentos: list[tuple[str, str, str]]
@@ -1122,12 +1139,20 @@ class Tradutor:
     # --- Expressões ----------------------------------------------------------------------
 
     def _expr(self) -> tuple[str, str]:
+        expr_c, tipo = self._expr_e()
+        while self._verificar(OU):
+            self._avancar()
+            direita_c, _ = self._expr_e()
+            expr_c = f"({expr_c}) || ({direita_c})"
+            tipo = LOGICO
+        return expr_c, tipo
+
+    def _expr_e(self) -> tuple[str, str]:
         expr_c, tipo = self._expr_comparacao()
-        while self._verificar(OU, E):
-            operador = self._avancar().tipo
+        while self._verificar(E):
+            self._avancar()
             direita_c, _ = self._expr_comparacao()
-            operador_c = "||" if operador == OU else "&&"
-            expr_c = f"({expr_c}) {operador_c} ({direita_c})"
+            expr_c = f"({expr_c}) && ({direita_c})"
             tipo = LOGICO
         return expr_c, tipo
 

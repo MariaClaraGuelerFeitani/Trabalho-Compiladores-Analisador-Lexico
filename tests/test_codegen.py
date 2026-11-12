@@ -405,15 +405,37 @@ def test_readln_lê_uma_linha_por_variavel(tmp_path: Path) -> None:
     assert "12" in saida
 
 
-def test_sqrt_vira_funcao_c_e_sqr_vira_multiplicacao() -> None:
+def test_sqrt_vira_funcao_c_e_sqr_avalia_argumento_uma_vez() -> None:
     codigo = traduzir_fonte(
         "programa P; var x, y: real; "
         "begin x := sqrt(sqr(3.0) + sqr(4.0)); y := sqr(x); end."
     )
     assert "#include <math.h>" in codigo
     assert "sqrt(" in codigo
-    assert "((3.0) * (3.0))" in codigo
-    assert "((gx_x) * (gx_x))" in codigo
+    assert "gx_sqr_real(3.0)" in codigo
+    assert "gx_sqr_real(gx_x)" in codigo
+    # O helper recebe o argumento uma única vez: nada de `(x) * (x)`.
+    assert "((gx_x) * (gx_x))" not in codigo
+
+
+def test_funcao_que_retorna_record_usa_inicializador_de_agregado() -> None:
+    codigo = traduzir_fonte(
+        "programa P; type p = record x: integer; end; "
+        "function f(): p; var r: p; begin r.x := 1; f := r; end; "
+        "var v: p; begin v := f(); end."
+    )
+    assert "gx_p gx_ret_f = {0};" in codigo
+
+
+def test_precedencia_de_e_maior_que_ou_no_c_gerado() -> None:
+    codigo = traduzir_fonte(
+        "programa P; var a, b, c: integer; begin "
+        "if a = 1 OU b = 2 E c = 3 then a := 0; end."
+    )
+    assert (
+        "if (((gx_a) == (1)) || (((gx_b) == (2)) && ((gx_c) == (3)))) {"
+        in codigo
+    )
 
 
 def test_formato_de_escrita_vira_printf() -> None:
