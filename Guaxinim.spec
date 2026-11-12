@@ -6,6 +6,7 @@ a = Analysis(
     binaries=[],
     datas=[
         ("img/background.jpg", "img"),
+        ("img/ada-wong2.webp", "img"),
         ("img/racoon.png", "img"),
         ("sfx/botao.mpeg", "sfx"),
         ("sfx/compilar.mpeg", "sfx"),

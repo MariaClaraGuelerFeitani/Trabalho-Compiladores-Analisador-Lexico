@@ -15,6 +15,7 @@ from PySide6.QtGui import QImage  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from src.config import (  # noqa: E402
+    ADA_BACKGROUND_IMAGE,
     BUNDLED_BACKGROUND_IMAGE,
     default_background_image,
 )
@@ -52,6 +53,17 @@ def pixel_do_editor(editor: CodeEditor, x: int, y: int):
 
 def test_imagem_do_projeto_existe() -> None:
     assert BUNDLED_BACKGROUND_IMAGE.is_file()
+
+
+def test_executavel_empacota_as_imagens_de_fundo() -> None:
+    # O PyInstaller so inclui o que esta em `datas`; uma imagem esquecida some
+    # do .exe e o tema que depende dela cai no fundo padrao.
+    spec = (Path(__file__).resolve().parent.parent / "Guaxinim.spec").read_text(
+        encoding="utf-8"
+    )
+    for imagem in (BUNDLED_BACKGROUND_IMAGE, ADA_BACKGROUND_IMAGE):
+        assert imagem.is_file()
+        assert f'"img/{imagem.name}"' in spec
 
 def test_padrao_aponta_para_a_imagem_do_projeto() -> None:
     assert Settings().background_image_path == str(BUNDLED_BACKGROUND_IMAGE)
