@@ -410,26 +410,32 @@ class SettingsDialog(QDialog):
 
 
     def settings(self) -> Settings:
-        valores = {
-            "theme": self.theme_combo.currentData(),
-            "font_family": self.font_combo.currentFont().family(),
-            "font_size": self.size_spin.value(),
-            "current_line_color": (
-                "" if self.current_line_auto.isChecked() else self.current_line_button.color().name()
-            ),
-            "error_color": "" if self.error_auto.isChecked() else self.error_button.color().name(),
-            "console_background": self.console_bg_button.color().name(),
-            "console_foreground": self.console_fg_button.color().name(),
-            "background_image_path": self.background_edit.text().strip(),
-            "background_image_opacity": self.background_spin.value(),
-        }
+        # Parte do objeto original para preservar os campos que o diálogo não
+        # edita (geometria/estado da janela, raiz do explorador e recentes).
+        # Sem isso, aceitar as preferências zerava esse estado no arquivo.
+        resultado = self._original.copy()
+        resultado.theme = self.theme_combo.currentData()
+        resultado.font_family = self.font_combo.currentFont().family()
+        resultado.font_size = self.size_spin.value()
+        resultado.current_line_color = (
+            "" if self.current_line_auto.isChecked() else self.current_line_button.color().name()
+        )
+        resultado.error_color = (
+            "" if self.error_auto.isChecked() else self.error_button.color().name()
+        )
+        resultado.console_background = self.console_bg_button.color().name()
+        resultado.console_foreground = self.console_fg_button.color().name()
+        resultado.background_image_path = self.background_edit.text().strip()
+        resultado.background_image_opacity = self.background_spin.value()
         for categoria, campo in PREFERENCE_FIELDS.items():
-            valores[campo] = (
+            setattr(
+                resultado,
+                campo,
                 ""
                 if self.highlight_auto[categoria].isChecked()
-                else self.highlight_buttons[categoria].color().name()
+                else self.highlight_buttons[categoria].color().name(),
             )
-        return Settings(**valores)
+        return resultado
 
     def _emit(self) -> None:
         self._on_change(self.settings())

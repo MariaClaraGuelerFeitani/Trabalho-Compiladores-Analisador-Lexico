@@ -457,6 +457,25 @@ def test_dialogo_comeca_com_a_cor_do_tema(app: QApplication, tema: str) -> None:
     assert dialog.settings().theme == tema
     dialog.close()
 
+def test_dialogo_preserva_campos_persistentes_ao_aceitar(app: QApplication) -> None:
+    from src.panels.settings_dialog import SettingsDialog
+
+    original = Settings(
+        theme=THEME_LIGHT,
+        window_geometry="geometria",
+        window_state="estado",
+        explorer_root="C:/projetos",
+        recent_files=["a.pas", "b.pas"],
+    )
+    dialog = SettingsDialog(original, lambda _s: None)
+    resultado = dialog.settings()
+    assert resultado.window_geometry == "geometria"
+    assert resultado.window_state == "estado"
+    assert resultado.explorer_root == "C:/projetos"
+    assert resultado.recent_files == ["a.pas", "b.pas"]
+    dialog.close()
+
+
 def test_dialogo_troca_de_tema_respeita_a_cor_manual(app: QApplication) -> None:
     from src.panels.settings_dialog import SettingsDialog
 

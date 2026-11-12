@@ -974,7 +974,14 @@ class MainWindow(QMainWindow):
             self._log("Nao foi possivel gravar as preferencias.")
 
     def restore_default_appearance(self) -> None:
-        self.commit_settings(Settings())
+        # "Restaurar aparencia" não deve apagar estado que não é aparência:
+        # geometria, layout, raiz do explorador e arquivos recentes ficam.
+        padrao = Settings()
+        padrao.window_geometry = self.settings.window_geometry
+        padrao.window_state = self.settings.window_state
+        padrao.explorer_root = self.settings.explorer_root
+        padrao.recent_files = list(self.settings.recent_files)
+        self.commit_settings(padrao)
 
     def _set_font_size(self, size: int) -> None:
         settings = self.settings.copy()
