@@ -137,6 +137,14 @@ class TokenHighlighter(QSyntaxHighlighter):
         self._tokens_por_linha = por_linha
         self._repintar()
 
+    def limpar_tokens(self) -> None:
+        """Descarta as posições antigas antes da próxima análise.
+
+        Sem isso, enquanto o usuário digita, os tokens da análise anterior
+        continuam pintando trechos que já mudaram de lugar.
+        """
+        self._tokens_por_linha = {}
+
     def _repintar(self) -> None:
         documento = self.document()
         bloqueado = documento.blockSignals(True)

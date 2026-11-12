@@ -121,8 +121,12 @@ class CodeEditor(QPlainTextEdit):
         self.blockCountChanged.connect(self._update_line_number_width)
         self.updateRequest.connect(self._update_line_number_area)
         self.cursorPositionChanged.connect(self._refresh_selections)
+        self.textChanged.connect(self._limpar_tokens)
         self._update_line_number_width()
         self._apply_highlight_colors()
+
+    def _limpar_tokens(self) -> None:
+        self._highlighter.limpar_tokens()
 
 
     def line_number_area_width(self) -> int:

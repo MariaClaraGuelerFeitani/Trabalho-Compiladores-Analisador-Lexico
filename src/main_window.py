@@ -230,7 +230,7 @@ class MainWindow(QMainWindow):
         self._atualizar_rotulo_da_aba(indice)
         self._update_title()
         self._clear_result_panels()
-        self.analysis.request(texto)
+        self.analysis.request(texto, editor)
         return aba
 
     def _fechar_aba_solicitada(self, indice: int) -> None:
@@ -263,7 +263,7 @@ class MainWindow(QMainWindow):
             self._criar_aba(NEW_FILE_TEMPLATE.format(nome="Ola"), None)
         else:
             self._update_position()
-            self.analysis.request(self.editor.toPlainText())
+            self.analysis.request(self.editor.toPlainText(), self.editor)
         return True
 
     def _marcar_aba_limpa(self, aba: _AbaEditor) -> None:
@@ -291,7 +291,7 @@ class MainWindow(QMainWindow):
             return
         self._update_position()
         self._update_title()
-        self.analysis.request(aba.editor.toPlainText())
+        self.analysis.request(aba.editor.toPlainText(), aba.editor)
         if self.find_bar.isVisible() and self.find_bar.texto_busca():
             aba.editor.highlight_find(
                 self.find_bar.texto_busca(), self.find_bar.diferenciar_maiusculas()
@@ -751,7 +751,7 @@ class MainWindow(QMainWindow):
     # --- Analise ------------------------------------------------------------------------
 
     def compile(self) -> None:
-        result = self.analysis.analyze_now(self.editor.toPlainText())
+        result = self.analysis.analyze_now(self.editor.toPlainText(), self.editor)
         self._log(self._summarize(result))
         self.output_tabs.setCurrentWidget(
             self.errors_table if result.has_any_errors else self.output_console
@@ -765,7 +765,7 @@ class MainWindow(QMainWindow):
         indice = self.editor_tabs.indexOf(aba.editor)
         self._atualizar_rotulo_da_aba(indice)
         self._update_title()
-        self.analysis.request(aba.editor.toPlainText())
+        self.analysis.request(aba.editor.toPlainText(), aba.editor)
 
     def _update_position(self) -> None:
         cursor = self.editor.textCursor()
@@ -784,7 +784,12 @@ class MainWindow(QMainWindow):
         palavras.extend(s.identifier for s in simbolos)
         return palavras
 
-    def _show_result(self, result: AnalysisResult) -> None:
+    def _show_result(self, result: AnalysisResult, alvo: object | None = None) -> None:
+        # O resultado só pode pintar a aba atual: se chegar para outra aba
+        # (troca durante o debounce), ele é descartado e a nova aba pedirá
+        # sua própria análise ao ser ativada.
+        if alvo is not None and alvo is not self.editor:
+            return
         editor = self.editor
         editor.set_error_marks(list(result.all_errors))
         editor.set_tokens(result.tokens)
@@ -873,7 +878,7 @@ class MainWindow(QMainWindow):
         """Salva, traduz para C e gera o `.exe`; devolve se o binario saiu."""
         if not self._garantir_arquivo_salvo():
             return False
-        resultado = self.analysis.analyze_now(self.editor.toPlainText())
+        resultado = self.analysis.analyze_now(self.editor.toPlainText(), self.editor)
         self._log(self._summarize(resultado))
         if resultado.has_any_errors:
             self.output_tabs.setCurrentWidget(self.errors_table)

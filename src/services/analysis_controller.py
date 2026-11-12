@@ -9,12 +9,13 @@ from .lexer_service import AnalysisResult, LexerService
 
 class AnalysisController(QObject):
 
-    result_ready = Signal(object)
+    result_ready = Signal(object, object)
 
     def __init__(self, lexer: LexerService, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._lexer = lexer
         self._pending_source = ""
+        self._pending_target: object | None = None
         self._timer = QTimer(self)
         self._timer.setSingleShot(True)
         self._timer.setInterval(ANALYSIS_DEBOUNCE_MS)
@@ -27,16 +28,19 @@ class AnalysisController(QObject):
     def set_lexer(self, lexer: LexerService) -> None:
         self._lexer = lexer
 
-    def request(self, source: str) -> None:
+    def request(self, source: str, target: object | None = None) -> None:
         self._pending_source = source
+        self._pending_target = target
         self._timer.start()
 
-    def analyze_now(self, source: str) -> AnalysisResult:
+    def analyze_now(
+        self, source: str, target: object | None = None
+    ) -> AnalysisResult:
         self._timer.stop()
         result = self._lexer.analyze(source)
-        self.result_ready.emit(result)
+        self.result_ready.emit(result, target)
         return result
 
     def _run(self) -> None:
         result = self._lexer.analyze(self._pending_source)
-        self.result_ready.emit(result)
+        self.result_ready.emit(result, self._pending_target)
