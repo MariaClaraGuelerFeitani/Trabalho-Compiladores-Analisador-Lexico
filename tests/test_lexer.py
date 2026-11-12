@@ -230,6 +230,11 @@ def test_literal_com_aspas_duplas_adentro(lexer: Lexer) -> None:
     assert pares(lexer, "'d''art'") == [(LITERAL, "'d''art'")]
 
 
+def test_atributos_de_literal_contam_apostrofo_dobrado(lexer: Lexer) -> None:
+    token = lexer.analisar("'a''b'").tokens[0]
+    assert token.atributos == "3 caracteres"
+
+
 @pytest.mark.parametrize("lexema", ["'aberta", "'a'b'"])
 def test_literal_nao_encerrado(lexer: Lexer, lexema: str) -> None:
     resultado = lexer.analisar(lexema)

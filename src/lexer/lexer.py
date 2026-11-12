@@ -372,7 +372,11 @@ O reconhecimento usa máximo casamento sobre o autômato finito determinístico
         if tipo == NUM:
             return "real" if "." in lexema else "inteiro"
         if tipo == LITERAL:
-            return f"{len(lexema) - 2} caracteres"
+            # Em Pascal, `''` dentro do literal representa um único apóstrofo;
+            # remover as aspas externas e desdobrar os pares conta o conteúdo real.
+            conteudo = lexema[1:-1] if len(lexema) >= 2 else lexema
+            quantidade = len(conteudo.replace("''", "'"))
+            return f"{quantidade} caracteres"
         return ""
 
     def _montar_tabela_de_simbolos(self) -> None:
