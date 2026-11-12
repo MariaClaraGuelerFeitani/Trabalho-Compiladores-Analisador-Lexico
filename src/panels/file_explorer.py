@@ -107,9 +107,14 @@ class FileExplorer(QWidget):
         if not self._raiz:
             return
         raiz = Path(self._raiz)
-        entradas = _ordenar(
-            [item for item in raiz.iterdir() if not item.name.startswith(".")]
-        )
+        try:
+            entradas = _ordenar(
+                [item for item in raiz.iterdir() if not item.name.startswith(".")]
+            )
+        except OSError:
+            # Pasta removida, drive desconectado ou sem permissão: mantém a
+            # árvore vazia em vez de propagar a exceção para o laço da UI.
+            return
         for caminho in entradas:
             self.arvore.addTopLevelItem(self._criar_item(caminho))
         # Todas as pastas comecam recolhidas; abrir a primeira automaticamente

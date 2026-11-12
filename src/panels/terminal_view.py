@@ -93,6 +93,15 @@ class TerminalView(QPlainTextEdit):
             self._escrever(self._decodificador.decode(dados))
 
     def _terminou(self, codigo: int, _status: QProcess.ExitStatus) -> None:
+        # Drena o que ainda estiver no pipe e fecha o decodificador: uma
+        # sequência UTF-8 incompleta no fim não pode ficar presa no buffer.
+        if self._processo is not None:
+            restante = bytes(self._processo.readAllStandardOutput())
+            if restante:
+                self._escrever(self._decodificador.decode(restante))
+        final = self._decodificador.decode(b"", final=True)
+        if final:
+            self._escrever(final)
         self._processo = None
         self._escrever(f"\n[programa terminado com codigo {codigo}]\n")
 
@@ -108,7 +117,15 @@ class TerminalView(QPlainTextEdit):
     def keyPressEvent(self, event: QKeyEvent) -> None:
         ctrl = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
         if ctrl and event.key() == Qt.Key.Key_C:
-            super().keyPressEvent(event)  # copiar a seleção
+            if self.textCursor().hasSelection():
+                super().keyPressEvent(event)  # copiar a seleção
+            elif self._processo is not None:
+                # Sem seleção, Ctrl+C interrompe o programa em execução, como
+                # em um terminal real.
+                self._escrever("^C\n")
+                self._processo.terminate()
+            else:
+                super().keyPressEvent(event)
             return
         if ctrl and event.key() == Qt.Key.Key_V:
             self._colar()

@@ -589,7 +589,7 @@ class MainWindow(QMainWindow):
             )
             return
         self._criar_aba(content, caminho)
-        self._log(f"Abrido: {caminho}")
+        self._log(f"Aberto: {caminho}")
         self._registrar_recente(caminho)
         self.explorer.marcar_arquivo_aberto(caminho)
 
@@ -614,6 +614,20 @@ class MainWindow(QMainWindow):
         aba = self._aba_atual()
         if aba is None:
             return False
+        caminho = str(Path(path))
+        for indice, outra in enumerate(self._abas):
+            if outra is aba:
+                continue
+            if outra.caminho and str(Path(outra.caminho)) == caminho:
+                # Evita duas abas com o mesmo arquivo e conteúdo divergente.
+                self.editor_tabs.setCurrentIndex(indice)
+                QMessageBox.warning(
+                    self,
+                    "Arquivo já aberto",
+                    "Este arquivo já está aberto em outra aba. "
+                    "Feche-a ou escolha outro caminho.",
+                )
+                return False
         try:
             FileService.write(path, aba.editor.toPlainText())
         except OSError as error:
@@ -699,7 +713,9 @@ class MainWindow(QMainWindow):
     # --- Busca e substituicao -----------------------------------------------------------
 
     def mostrar_busca(self, com_substituicao: bool = False) -> None:
-        texto = ""
+        # Sem seleção, mantém o último termo procurado (como nos editores
+        # usuais); com seleção, preenche com o trecho escolhido.
+        texto = self.find_bar.texto_busca()
         cursor = self.editor.textCursor()
         if cursor.hasSelection():
             selecionado = cursor.selectedText()

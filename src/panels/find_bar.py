@@ -90,8 +90,7 @@ class FindBar(QWidget):
     def mostrar(self, com_substituicao: bool = False, texto: str = "") -> None:
         self._alternar_substituicao(com_substituicao)
         self.setVisible(True)
-        if texto:
-            self.campo_busca.setText(texto)
+        self.campo_busca.setText(texto)
         self.campo_busca.selectAll()
         self.campo_busca.setFocus(Qt.FocusReason.ShortcutFocusReason)
 

@@ -602,6 +602,7 @@ class _ProcessoFalso:
     def __init__(self, saida: bytes = b"") -> None:
         self.escritos: list[bytes] = []
         self._saida = saida
+        self.terminado = False
 
     def write(self, dados: bytes) -> int:
         self.escritos.append(dados)
@@ -610,6 +611,9 @@ class _ProcessoFalso:
     def readAllStandardOutput(self) -> bytes:
         saida, self._saida = self._saida, b""
         return saida
+
+    def terminate(self) -> None:
+        self.terminado = True
 
 
 def _tecla(key: int, texto: str = "") -> QKeyEvent:
@@ -652,6 +656,43 @@ def test_terminal_sem_processo_nao_digita_nem_edita_saida(
     terminal.keyPressEvent(_tecla(Qt.Key.Key_Backspace))
     assert terminal.toPlainText() == texto_antes
     assert terminal._linha == ""
+
+
+def test_terminal_finaliza_utf8_incompleto_ao_terminar(app: QApplication) -> None:
+    terminal = TerminalView()
+    terminal._processo = _ProcessoFalso(b"Ol\xc3")
+    terminal._receber()
+    assert "Ol" in terminal.toPlainText()
+    terminal._terminou(0, None)  # type: ignore[arg-type]
+    assert "�" in terminal.toPlainText()
+    assert "[programa terminado com codigo 0]" in terminal.toPlainText()
+
+
+def test_terminal_ctrl_c_sem_selecao_interrompe_processo(app: QApplication) -> None:
+    terminal = TerminalView()
+    processo = _ProcessoFalso()
+    terminal._processo = processo
+    evento = QKeyEvent(
+        QKeyEvent.Type.KeyPress,
+        int(Qt.Key.Key_C),
+        Qt.KeyboardModifier.ControlModifier,
+        "",
+    )
+    terminal.keyPressEvent(evento)
+    assert processo.terminado
+    assert "^C" in terminal.toPlainText()
+
+
+def test_explorador_nao_quebra_quando_a_raiz_desaparece(
+    app: QApplication, tmp_path
+) -> None:
+    pasta = tmp_path / "some"
+    pasta.mkdir()
+    explorador = FileExplorer()
+    explorador.definir_raiz(str(pasta))
+    pasta.rmdir()
+    explorador.atualizar()  # não deve propagar OSError
+    assert explorador.arvore.topLevelItemCount() == 0
 
 
 @requer_tcc
@@ -743,3 +784,12 @@ def test_executar_pede_para_salvar_arquivo_novo(janela: MainWindow, monkeypatch)
     )
     janela.run_executable()
     assert chamados == ["pediu salvar"]
+
+
+def test_resultado_de_outra_aba_nao_pinta_a_aba_atual(janela: MainWindow) -> None:
+    # O resultado carrega a aba de origem; se ela não é mais a atual, os
+    # painéis da aba atual ficam intocados até a nova análise.
+    antes = janela.errors_table.rowCount()
+    resultado = build_lexer().analyze("programa P; begin @ end.")
+    janela._show_result(resultado, CodeEditor())
+    assert janela.errors_table.rowCount() == antes
