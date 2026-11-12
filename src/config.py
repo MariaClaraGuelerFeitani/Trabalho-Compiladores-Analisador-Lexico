@@ -54,6 +54,44 @@ def default_background_image() -> str:
     return str(BUNDLED_BACKGROUND_IMAGE) if BUNDLED_BACKGROUND_IMAGE.is_file() else ""
 
 
+def project_image_token(caminho: str) -> str:
+    """Versao estavel, para o settings.json, de uma imagem do projeto.
+
+    No executavel PyInstaller onefile, `img/` e extraida para uma pasta
+    temporaria (`_MEIxxxx`) diferente a cada execucao. Guardar o caminho
+    absoluto dessa pasta faz o fundo sumir na proxima abertura; por isso as
+    imagens de `img/` sao persistidas como `img/<nome>`.
+    """
+    if not caminho:
+        return ""
+    alvo = Path(caminho)
+    try:
+        relativo = alvo.resolve().relative_to(IMAGE_DIR.resolve())
+    except (OSError, ValueError):
+        return caminho
+    if (IMAGE_DIR / relativo).is_file():
+        return f"img/{relativo.as_posix()}"
+    return caminho
+
+
+def resolve_background_image(caminho: str) -> str:
+    """Resolve `img/<nome>` (ou um caminho antigo de extracao) para o arquivo atual."""
+    if not caminho:
+        return ""
+    if caminho.startswith("img/"):
+        alvo = IMAGE_DIR / caminho[len("img/"):]
+        return str(alvo) if alvo.is_file() else caminho
+    alvo = Path(caminho)
+    if not alvo.is_file() and alvo.parent.name == "img":
+        # settings.json de versoes anteriores guardava o caminho absoluto da
+        # pasta temporaria criada pelo PyInstaller. O nome do arquivo basta:
+        # a extracao atual tem a mesma imagem.
+        candidato = IMAGE_DIR / alvo.name
+        if candidato.is_file():
+            return str(candidato)
+    return caminho
+
+
 def monospace_font(family: str = "", size: int = 0) -> QFont:
     font = QFont(family or EDITOR_FONT_FAMILY, size or EDITOR_FONT_SIZE)
     font.setStyleHint(QFont.StyleHint.Monospace)

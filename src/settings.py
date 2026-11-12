@@ -16,6 +16,8 @@ from .config import (
     EDITOR_FONT_SIZE,
     RECENT_LIMIT,
     default_background_image,
+    project_image_token,
+    resolve_background_image,
 )
 
 THEME_SYSTEM = "system"
@@ -158,6 +160,9 @@ def load_settings(path: Path | None = None) -> Settings:
     settings = Settings(**values)
     if settings.theme not in THEME_CHOICES:
         settings.theme = THEME_SYSTEM
+    settings.background_image_path = resolve_background_image(
+        settings.background_image_path
+    )
     if settings.theme == THEME_RESIDENT_EVIL and not settings.background_image_path:
         settings.background_image_path = default_background_image_for(THEME_RESIDENT_EVIL)
     return settings
@@ -167,7 +172,11 @@ def save_settings(settings: Settings, path: Path | None = None) -> bool:
     target = path or default_settings_path()
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(asdict(settings), indent=2), encoding="utf-8")
+        dados = asdict(settings)
+        dados["background_image_path"] = project_image_token(
+            dados["background_image_path"]
+        )
+        target.write_text(json.dumps(dados, indent=2), encoding="utf-8")
     except OSError:
         return False
     return True

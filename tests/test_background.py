@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -238,6 +239,32 @@ def test_opacidade_sobrevive_ao_round_trip(tmp_path: Path) -> None:
     recarregado = load_settings(caminho)
     assert recarregado.background_image_path == "C:/fundo.png"
     assert recarregado.background_image_opacity == 35
+
+def test_imagem_do_projeto_e_salva_com_caminho_estavel(tmp_path: Path) -> None:
+    # No .exe onefile a pasta _MEIxxxx muda a cada execucao. O settings.json
+    # deve guardar o caminho portatil, nao o absoluto da extracao atual.
+    caminho = tmp_path / "preferencias.json"
+    config = Settings(background_image_path=str(BUNDLED_BACKGROUND_IMAGE))
+    assert save_settings(config, caminho)
+
+    bruto = json.loads(caminho.read_text(encoding="utf-8"))
+    assert bruto["background_image_path"] == f"img/{BUNDLED_BACKGROUND_IMAGE.name}"
+    assert load_settings(caminho).background_image_path == str(BUNDLED_BACKGROUND_IMAGE)
+
+
+def test_caminho_de_extracao_antiga_e_resolvido(tmp_path: Path) -> None:
+    # settings.json gravado por uma execucao anterior do .exe aponta para uma
+    # pasta temporaria que ja nao existe; o fundo deve voltar da extracao atual.
+    caminho = tmp_path / "preferencias.json"
+    antigo = (
+        "C:/Users/alguem/AppData/Local/Temp/_MEI123456/img/"
+        f"{BUNDLED_BACKGROUND_IMAGE.name}"
+    )
+    caminho.write_text(
+        json.dumps({"background_image_path": antigo}), encoding="utf-8"
+    )
+    assert load_settings(caminho).background_image_path == str(BUNDLED_BACKGROUND_IMAGE)
+
 
 def test_opacidade_fora_da_faixa_e_aparada(tmp_path: Path) -> None:
     caminho = tmp_path / "preferencias.json"
