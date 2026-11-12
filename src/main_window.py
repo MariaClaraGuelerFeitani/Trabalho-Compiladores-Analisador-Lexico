@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from PySide6.QtCore import QByteArray, Qt, QUrl
-from PySide6.QtGui import QAction, QCloseEvent, QColor, QKeySequence
+from PySide6.QtGui import QAction, QCloseEvent, QColor, QKeySequence, QScreen
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -151,7 +151,6 @@ class MainWindow(QMainWindow):
         self._connect()
 
         self._init_sfx()
-        self._geometria_padrao = bytes(self.saveGeometry())
         self._estado_padrao = bytes(self.saveState())
         self._restaurar_geometria_salva()
         self.apply_settings(self.settings)
@@ -1005,12 +1004,18 @@ class MainWindow(QMainWindow):
     def restaurar_layout_padrao(self) -> None:
         # Restaura a disposicao dos paineis e o tamanho normal da janela, mas
         # nao tira o usuario de tela cheia/maximizado: reaplica o estado em que
-        # a janela ja estava depois de devolver a geometria padrao (que fica
-        # valendo para quando ele restaurar/desmaximizar).
+        # a janela ja estava depois de devolver o tamanho padrao.
         tela_cheia = self.isFullScreen()
         maximizada = self.isMaximized()
-        self.restoreGeometry(self._geometria_padrao)
+        tela = QApplication.screenAt(self.frameGeometry().center()) or self.screen()
+        if tela_cheia or maximizada:
+            self.showNormal()
+        self.resize(*WINDOW_SIZE)
         self.restoreState(self._estado_padrao)
+        # A geometria padrao capturada no __init__ ainda estava em (0,0), antes
+        # da primeira exibicao; reaplica-la levava a janela para um canto.
+        # Centralizar na tela em que o usuario esta e o comportamento esperado.
+        self._centralizar_na_tela(tela)
         if tela_cheia:
             self.showFullScreen()
         elif maximizada:
@@ -1020,6 +1025,13 @@ class MainWindow(QMainWindow):
         if not save_settings(self.settings, self._settings_path):
             self._log("Nao foi possivel gravar as preferencias.")
         self._log("Layout padrao restaurado.")
+
+    def _centralizar_na_tela(self, tela: QScreen | None) -> None:
+        if tela is None:
+            return
+        quadro = self.frameGeometry()
+        quadro.moveCenter(tela.availableGeometry().center())
+        self.move(quadro.topLeft())
 
     def _restaurar_geometria_salva(self) -> None:
         if self.settings.window_geometry:

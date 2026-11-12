@@ -136,6 +136,26 @@ def test_restaurar_layout_limpa_geometria_salva(janela: MainWindow) -> None:
     assert janela.settings.window_state == ""
 
 
+def test_restaurar_layout_centraliza_janela(
+    janela: MainWindow, app: QApplication
+) -> None:
+    janela.show()
+    app.processEvents()
+    janela.move(0, 0)
+    app.processEvents()
+
+    janela.restaurar_layout_padrao()
+    app.processEvents()
+
+    # A geometria capturada no __init__ ficava em (0,0) e jogava a janela
+    # para um canto; o tamanho padrao deve voltar centralizado na tela.
+    tela = app.screenAt(janela.frameGeometry().center()) or janela.screen()
+    centro_tela = tela.availableGeometry().center()
+    centro_janela = janela.frameGeometry().center()
+    assert abs(centro_janela.x() - centro_tela.x()) <= 5
+    assert abs(centro_janela.y() - centro_tela.y()) <= 5
+
+
 def test_restaurar_layout_preserva_janela_maximizada(
     janela: MainWindow, app: QApplication
 ) -> None:
