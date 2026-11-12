@@ -761,12 +761,18 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
         self._erro("esperado ';' ou ')' ao final da declaração de parâmetro")
         return None
 
-    def _bloco(self) -> NoBloco:
+    def _bloco(self, exigir_ponto_e_virgula: bool = True) -> NoBloco:
         self._derivacao("bloco")
         self._esperar(BEGIN, "'begin'")
         comandos = self._instrucoes()
         self._esperar(END, "'end'")
-        self._esperar(PONTO_E_VIRGULA, "';'")
+        if exigir_ponto_e_virgula:
+            self._esperar(PONTO_E_VIRGULA, "';'")
+        elif self._aceitar(PONTO_E_VIRGULA):
+            pass
+        elif not (self._verificar(*self._FIM_DE_BLOCO) or self._fim()):
+            # O `;` só é dispensável quando o bloco é a última instrução.
+            self._erro("esperado ';' após 'end'")
         return NoBloco(comandos=comandos)
 
     def _instrucoes(self) -> tuple[No, ...]:
@@ -811,7 +817,7 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
         if tipo == ID:
             return self._instrucao_identificador()
         if tipo == BEGIN:
-            return self._bloco()
+            return self._bloco(exigir_ponto_e_virgula=False)
         if tipo == IF:
             return self._instrucao_se()
         if tipo == WHILE:
@@ -1161,8 +1167,23 @@ Quando um `AnaliseSemantica` é injetado, o parser chama seus ganchos durante a
 
     def _expr(self) -> ResultadoExpr:
         self._derivacao("expr")
+        resultado = self._expr_e()
+        while self._verificar(OU):
+            operador = self._avancar()
+            direita = self._expr_e()
+            if self._semantico is not None and operador is not None:
+                tipo = self._semantico.combinar_logico(
+                    resultado.tipo, direita.tipo, operador
+                )
+            else:
+                tipo = LOGICO
+            resultado = self._binario(resultado, direita, operador, tipo)
+        return resultado
+
+    def _expr_e(self) -> ResultadoExpr:
+        self._derivacao("exprE")
         resultado = self._expr_comparacao()
-        while self._verificar(OU, E):
+        while self._verificar(E):
             operador = self._avancar()
             direita = self._expr_comparacao()
             if self._semantico is not None and operador is not None:

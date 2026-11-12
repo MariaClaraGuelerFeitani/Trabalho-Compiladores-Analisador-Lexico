@@ -79,6 +79,18 @@ def test_ast_associatividade_a_esquerda() -> None:
     assert raiz.esquerda.esquerda.valor == "10"
 
 
+def test_ast_e_liga_mais_forte_que_ou() -> None:
+    programa = arvore(
+        "programa P; var a, b, c: integer; begin "
+        "if a = 1 OU b = 2 E c = 3 then a := 0; end."
+    )
+    condicao = programa.comandos[0].condicao
+    assert isinstance(condicao, NoBinario)
+    assert condicao.operador == "OU"
+    assert isinstance(condicao.direita, NoBinario)
+    assert condicao.direita.operador == "E"
+
+
 def test_ascii_desenha_operador_no_topo() -> None:
     programa = arvore(
         "programa P; var X: integer; begin X := 7 + 3 * 5; end."

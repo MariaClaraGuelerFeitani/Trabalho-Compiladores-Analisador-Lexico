@@ -277,6 +277,17 @@ def test_ponto_e_virgula_continua_exigido_no_meio_do_bloco() -> None:
     assert any("';'" in m for m in mensagens_de_erro("programa P; var x: integer; begin x := 1 x := 2; end."))
 
 
+def test_bloco_interno_dispensa_ponto_e_virgula_antes_do_end() -> None:
+    sem_erros("programa P; begin begin end end.")
+
+
+def test_bloco_interno_ainda_exige_separador_entre_instrucoes() -> None:
+    assert any(
+        "';'" in m
+        for m in mensagens_de_erro("programa P; begin begin end x := 1; end.")
+    )
+
+
 @pytest.mark.parametrize(
     "fonte",
     [

@@ -189,13 +189,17 @@ class AnaliseSemantica:
 
     def _declarar(self, entrada: tb.Entrada, token: Token | None) -> None:
         anterior = self._tabela.declarar(entrada)
+        if anterior is not None:
+            # Redeclaração não entra na tabela nem na lista exibida pela IDE:
+            # só a primeira declaração do escopo é um símbolo válido.
+            if token is not None:
+                self._erro(
+                    f"'{entrada.nome}' já declarado na linha {anterior.linha} "
+                    f"como {anterior.categoria}",
+                    token,
+                )
+            return
         self._registradas.append(entrada)
-        if anterior is not None and token is not None:
-            self._erro(
-                f"'{entrada.nome}' já declarado na linha {anterior.linha} "
-                f"como {anterior.categoria}",
-                token,
-            )
 
     def declarar_variaveis(
         self, nomes: tuple[Token, ...], tipo: str
@@ -521,12 +525,9 @@ class AnaliseSemantica:
     ) -> str:
         """Assinaturas de `sqrt` (resultado `real`) e `sqr` (tipo do argumento)."""
         nome = token.lexema.lower()
-        if como_instrucao:
-            self._erro(
-                f"'{nome}' é uma função e não pode ser usada como instrução",
-                token,
-            )
-            return tp.DESCONHECIDO
+        # Como funções declaradas pelo usuário, `sqrt`/`sqr` podem ser chamadas
+        # como instrução descartando o resultado; a aridade e os tipos seguem
+        # sendo verificados abaixo.
         if len(tipos_argumentos) != 1:
             self._erro(
                 f"'{nome}' espera 1 argumento(s), "

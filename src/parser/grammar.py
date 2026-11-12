@@ -39,6 +39,10 @@ ANEXO_I: tuple[Producao, ...] = (
     Producao("programa", ("PROGRAM ID ; declaracoes BEGIN instrucoes END .",)),
     Producao("bloco", ("BEGIN instrucoes END ;",)),
     Producao(
+        "blocoInstrucao",
+        ("BEGIN instrucoes END", "BEGIN instrucoes END ;"),
+    ),
+    Producao(
         "declaracoes",
         ("declaracaoVariavel declaracaoConstante declProcedimento",),
     ),
@@ -82,15 +86,15 @@ ANEXO_I: tuple[Producao, ...] = (
             "BREAK ;",
             "CONTINUE ;",
             "bloco",
+            "blocoInstrucao",
         ),
     ),
     Producao("parametros2", ("expr formatos parametros2", ", expr formatos parametros2", VAZIA)),
     Producao("formatos", (": NUM", ": NUM : NUM", VAZIA)),
-    Producao("expr", ("exprComparacao expr2",)),
-    Producao(
-        "expr2",
-        ("OU exprComparacao expr2", "E exprComparacao expr2", VAZIA),
-    ),
+    Producao("expr", ("exprE expr2",)),
+    Producao("expr2", ("OU exprE expr2", VAZIA)),
+    Producao("exprE", ("exprComparacao exprE2",)),
+    Producao("exprE2", ("E exprComparacao exprE2", VAZIA)),
     Producao("exprComparacao", ("exprOp exprComparacao2",)),
     Producao(
         "exprComparacao2",

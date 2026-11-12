@@ -291,12 +291,14 @@ def test_sqrt_de_argumento_nao_numerico() -> None:
     assert any("esperado número" in m for m in erros_semanticos(fonte))
 
 
-def test_sqrt_com_argumento_roubado_e_como_instrucao() -> None:
+def test_sqrt_com_argumento_roubado_e_chamada_como_instrucao() -> None:
     assert any(
         "espera 1 argumento(s)" in m
         for m in erros_semanticos("programa P; var r: real; begin r := sqrt(1, 2); end.")
     )
-    assert any(
+    # Como nas funções do usuário, descartar o resultado de uma função
+    # predefinida é permitido, desde que a aridade esteja correta.
+    assert not any(
         "não pode ser usada como instrução" in m
         for m in erros_semanticos("programa P; begin sqr(3); end.")
     )
